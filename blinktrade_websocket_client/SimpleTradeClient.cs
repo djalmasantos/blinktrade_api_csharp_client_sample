@@ -614,6 +614,7 @@ namespace Blinktrade
 					priceType = TradingStrategy.PriceType.FIXED;
 					break;
 				case "PEGGED":
+				case "FLOAT":
 				if ( side == OrderSide.SELL )
 						priceType = TradingStrategy.PriceType.PEGGED;
 					else

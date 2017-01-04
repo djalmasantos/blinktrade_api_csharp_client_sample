@@ -205,6 +205,26 @@ namespace Blinktrade
 			return false;
 		}
 
+		public ulong MaxPriceForAmount(char side, ulong target_amount)
+		{
+			List<Order> orderList = null;
+			if (side == OrderBook.OrdSide.BUY)
+				orderList = _buyside;
+			else if (side == OrderBook.OrdSide.SELL)
+				orderList = _sellside;
+			else
+				throw new System.ArgumentException("Invalid OrderBook Side : " + side);
+			
+			ulong amount = 0;
+			for (int i = 0; i < orderList.Count(); ++i) 
+			{
+				amount += orderList[i].Qty;
+				if (amount >= target_amount)
+					return orderList [i].Price;
+			}
+			return ulong.MaxValue;
+		}
+
 
         private void AppendOrder(Order order)
 		{
