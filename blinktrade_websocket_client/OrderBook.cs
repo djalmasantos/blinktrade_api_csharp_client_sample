@@ -205,7 +205,7 @@ namespace Blinktrade
 			return false;
 		}
 
-		public ulong MaxPriceForAmount(char side, ulong target_amount)
+		public ulong MaxPriceForAmountWithoutSelfOrders(char side, ulong target_amount, ulong user_id)
 		{
 			List<Order> orderList = null;
 			if (side == OrderBook.OrdSide.BUY)
@@ -218,9 +218,11 @@ namespace Blinktrade
 			ulong amount = 0;
 			for (int i = 0; i < orderList.Count(); ++i) 
 			{
-				amount += orderList[i].Qty;
-				if (amount >= target_amount)
-					return orderList [i].Price;
+				if (orderList [i].UserId != user_id) {
+					amount += orderList[i].Qty;
+					if (amount >= target_amount)
+						return orderList[i].Price;
+				}
 			}
 			return ulong.MaxValue;
 		}

@@ -66,12 +66,32 @@ namespace Blinktrade
 				// make the price float according to the MID Price Peg Or Last Price Peg (the highest)
 				SecurityStatus status = _tradeclient.GetSecurityStatus ("BLINK", symbol);
 				if (status != null) {
-					ulong maxPriceToBuyXBTC = _tradeclient.GetOrderBook(symbol).MaxPriceForAmount (OrderBook.OrdSide.SELL, (ulong)(5 * 1e8));
+					// gather the magic element of the midprice
+					OrderBook orderBook = _tradeclient.GetOrderBook (symbol);
+					ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
+															OrderBook.OrdSide.SELL,
+															(ulong)(10 * 1e8),
+															_tradeclient.UserId);
+					/*
+					LogStatus(
+						LogStatusType.WARN,
+						String.Format(
+							"maxPriceToBuyXBTC: {0}",
+							maxPriceToBuyXBTC)
+					);
+					*/
+					// calculate the mid price					
 					ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
 					Debug.Assert (_pegOffsetValue > 0);
 					_sellTargetPrice = midprice + _pegOffsetValue;
 					// TODO: MUST Provide a FLOOR for selling in the final strategy
+						ulong floor = (ulong)( 3350 * 1e8);
+					if ( _sellTargetPrice < floor ) {
+						_sellTargetPrice = floor;
+					}
+					
 				} 
+				/*
 				else 
 				{
 					LogStatus(
@@ -82,6 +102,7 @@ namespace Blinktrade
 					);
 					return;
 				}
+				*/
 			}
 
 			// run the strategy
