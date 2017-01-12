@@ -16,6 +16,7 @@ namespace Blinktrade
         void OnError(string errorMessage, IWebSocketClientConnection connection);
         void OnLogEvent(LogStatusType logType, string message);
         void SendTestRequest(IWebSocketClientConnection connection);
+		List<IWebSocketClientConnection> GetConnections();
         event EventHandler<SystemEventArgs> SystemEvent;
         event LogStatusDelegate LogStatusEvent;
     }
