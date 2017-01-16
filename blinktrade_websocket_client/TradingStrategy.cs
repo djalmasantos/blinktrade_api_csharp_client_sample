@@ -85,24 +85,23 @@ namespace Blinktrade
 					Debug.Assert (_pegOffsetValue > 0);
 					_sellTargetPrice = midprice + _pegOffsetValue;
 					// TODO: MUST Provide a FLOOR for selling in the final strategy
-						ulong floor = (ulong)( 3350 * 1e8);
+					ulong floor = (ulong)( 2900 * 1e8);
 					if ( _sellTargetPrice < floor ) {
 						_sellTargetPrice = floor;
 					}
 					
 				} 
-				/*
 				else 
 				{
 					LogStatus(
 						LogStatusType.WARN,
 						String.Format(
-							"Expecting Security Status BLINK:{0} to run Pegged strategy",
+							"Waiting Security Status BLINK:{0} to run Pegged strategy",
 							symbol)
 					);
+					// cannot run strategy without the Security Status for the trading symbol
 					return;
 				}
-				*/
 			}
 
 			// run the strategy
