@@ -27,12 +27,14 @@ namespace Blinktrade
 		private SortedDictionary<string, SecurityStatus> _securityStatusEntries = new SortedDictionary<string, SecurityStatus>();
         private MiniOMS _miniOMS = new MiniOMS();
         private TradingStrategy _tradingStrategy;
+		private IWebSocketClientProtocolEngine _protocolEngine;
 
-        SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy)
+		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine)
         {
             _brokerId = broker_id;
             _tradingSymbol = symbol;
             _tradingStrategy = strategy;
+			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
         }
 
@@ -375,7 +377,7 @@ namespace Blinktrade
             marketdata_request["SubscriptionRequestType"] = "1";
             marketdata_request["MarketDepth"] = 0;
             marketdata_request["MDUpdateType"] = "1";
-            marketdata_request["MDEntryTypes"] = new JArray("0", "1", "2"); // bid, offer e trade
+            marketdata_request["MDEntryTypes"] = new JArray("0", "1"); // bid, offer
             marketdata_request["Instruments"] = new JArray(_tradingSymbol);
             marketdata_request["FingerPrint"] = connection.Device.FingerPrint;
             marketdata_request["STUNTIP"] = connection.Device.Stuntip;
@@ -692,19 +694,22 @@ namespace Blinktrade
             {
                 // instantiate the tradeclient object to handle the trading stuff
 				TradingStrategy strategy = new TradingStrategy(maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
-                SimpleTradeClient tradeclient = new SimpleTradeClient(broker_id, symbol, strategy);
 
-                // instantiate the protocol engine object to handle the blinktrade messaging stuff
-                WebSocketClientProtocolEngine protocolEngine = new WebSocketClientProtocolEngine();
+				// instantiate the protocol engine object to handle the blinktrade messaging stuff
+				WebSocketClientProtocolEngine protocolEngine = new WebSocketClientProtocolEngine();
+
+				SimpleTradeClient tradeclient = new SimpleTradeClient(broker_id, symbol, strategy, protocolEngine);
+
+                
 
                 // tradeclient must subscribe to receive the callback events from the protocol engine
                 protocolEngine.SystemEvent += tradeclient.OnBrokerNotification;
                 protocolEngine.LogStatusEvent += LogStatus;
                 strategy.LogStatusEvent += LogStatus;
 
-                // workaround (working only in DEBUG) to trap the console application exit 
+                // workaround (on windows working only in DEBUG) to trap the console application exit 
 				// and dump the last state of the Market Data Order Book(s), MiniOMS and Security Status
-				#if DEBUG
+				#if  ( __MonoCS__ || DEBUG )
                 	System.AppDomain appDom = System.AppDomain.CurrentDomain;
                 	appDom.ProcessExit += new EventHandler(tradeclient.OnApplicationExit);
 					#if __MonoCS__
@@ -775,7 +780,15 @@ namespace Blinktrade
 
         private void OnApplicationExit(object sender, EventArgs e)
         {
-            Console.WriteLine("Exiting app");
+			//Console.WriteLine ("OnApplicationExit");
+			// workaround to cancel all orders when application is dying (TODO: extend for more connections in the future)
+			this._tradingStrategy.Enabled = false; // disable strategy
+			Thread.Sleep(100);
+			if (this._protocolEngine.GetConnections().Count > 0) {
+				this.SendRequestToCancelAllOrders (this._protocolEngine.GetConnections()[0]);
+				Thread.Sleep(100);
+				this.SendRequestToCancelAllOrders (this._protocolEngine.GetConnections()[0]);
+			}
 
             Console.WriteLine("Dumping In Memory Order Books");
             foreach (KeyValuePair<string, OrderBook> kvp in _allOrderBooks)
@@ -793,7 +806,10 @@ namespace Blinktrade
                 Console.WriteLine(kvp.Value.ToString());
             }
 
-            Console.WriteLine("Program Terminated.");
+
+			Console.WriteLine("Program Terminated.");
+			Console.Out.Flush();
+			Console.Error.Flush();
         }
 
 		#if !__MonoCS__
@@ -818,8 +834,8 @@ namespace Blinktrade
 
         private static bool OnConsoleCtrlCheck(CtrlTypes ctrlType)
         {
-
-            lock (_consoleLock)
+			lock (_consoleLock)
+			//Console.WriteLine("CALLED OnConsoleCtrlCheck({0})", ctrlType);
             {
                 bool userRequestExit = false;
                 switch (ctrlType)
@@ -846,8 +862,9 @@ namespace Blinktrade
                         break;
                 }
 
-                if (userRequestExit)
-                    Environment.Exit(0);
+				if (userRequestExit) {
+                    Environment.Exit (0);
+				}
             }
 
             return true;
@@ -865,7 +882,7 @@ namespace Blinktrade
 				// Wait for a signal to be delivered
 				int index = UnixSignal.WaitAny (signals, -1);
 		        // invoke the clean-up routine before exiting
-                Mono.Unix.Native.Signum signal = signals[index].Signum;
+				Mono.Unix.Native.Signum signal = signals[index].Signum;
 				OnConsoleCtrlCheck(signal == Mono.Unix.Native.Signum.SIGINT ? CtrlTypes.CTRL_C_EVENT : CtrlTypes.CTRL_CLOSE_EVENT);
 				break;
 			}

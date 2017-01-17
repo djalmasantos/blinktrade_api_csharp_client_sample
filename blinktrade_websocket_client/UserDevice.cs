@@ -18,7 +18,7 @@ namespace Blinktrade
             _stuntip["public"] = new JArray(Util.GetExternalIpAddress());
         }
 
-        public string FingerPrint
+		public string FingerPrint
         {
             get { return _fingerPrint; }
         }

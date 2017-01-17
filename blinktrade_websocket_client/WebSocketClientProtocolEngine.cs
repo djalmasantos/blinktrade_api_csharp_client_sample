@@ -15,6 +15,8 @@ namespace Blinktrade
 
         public event LogStatusDelegate LogStatusEvent;
 
+		public List<IWebSocketClientConnection> _connections = new List<IWebSocketClientConnection>();
+
         protected virtual void DispatchEvent(
 								SystemEventType evtType, 
 								IWebSocketClientConnection connection, 
@@ -29,7 +31,12 @@ namespace Blinktrade
             }
         }
 
-        public void OnLogEvent(LogStatusType type, string message)
+		public List<IWebSocketClientConnection> GetConnections()
+		{
+			return _connections;
+		}
+
+		public void OnLogEvent(LogStatusType type, string message)
         {
             if (LogStatusEvent != null)
                 LogStatusEvent(type, message);
@@ -40,8 +47,9 @@ namespace Blinktrade
             Debug.Assert(connection.IsConnected);
             Debug.Assert(!connection.IsLoggedOn);
 
-
             OnLogEvent(LogStatusType.INFO, "Connection Succeeded");
+
+			_connections.Add(connection);
 
             // dispatch the connection opened
             DispatchEvent(SystemEventType.OPENED, connection);

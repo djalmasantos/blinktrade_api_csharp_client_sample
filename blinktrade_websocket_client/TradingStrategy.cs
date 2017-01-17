@@ -18,6 +18,7 @@ namespace Blinktrade
 		private double _startTime;
         private long _cloridSeqNum = 0;
         private ITradeClientService _tradeclient;
+		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
 		public enum PriceType { FIXED, PEGGED }
@@ -27,6 +28,12 @@ namespace Blinktrade
 		public event LogStatusDelegate LogStatusEvent;
 
         public ITradeClientService tradeclient { set { _tradeclient = value; } }
+
+		public bool Enabled 
+		{
+			get { return _enabled;}
+			set { _enabled = value; }
+		}
 
 		public TradingStrategy(ulong max_trade_size, ulong buy_target_price, ulong sell_target_price, char side, PriceType priceType)
         {
@@ -60,6 +67,11 @@ namespace Blinktrade
             // Run the strategy to try to have an order on at least one side of the book according to fixed price range 
 			// but never executing as a taker
             
+			if (!_enabled) { // strategy cannot run when disabled
+				LogStatus(LogStatusType.WARN,"Strategy is disabled and will not run");
+				return;
+			}
+
 			// ** temporary workaround to support market pegged sell order strategy without plugins **
 			if (_priceType == PriceType.PEGGED && _strategySide == OrderSide.SELL) 
 			{
