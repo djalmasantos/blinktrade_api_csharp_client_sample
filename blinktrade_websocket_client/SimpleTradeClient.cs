@@ -28,6 +28,7 @@ namespace Blinktrade
         private MiniOMS _miniOMS = new MiniOMS();
         private TradingStrategy _tradingStrategy;
 		private IWebSocketClientProtocolEngine _protocolEngine;
+		private ulong _soldAmount = 0;
 
 		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine)
         {
@@ -70,6 +71,11 @@ namespace Blinktrade
             else
                 return 0;
         }
+
+		public ulong GetSoldAmount(/*string symbol*/)
+		{
+			return _soldAmount;
+		}
 
 		public SecurityStatus GetSecurityStatus(string market, string symbol)
 		{
@@ -512,24 +518,37 @@ namespace Blinktrade
         private void ProcessExecutionReport(JObject msg)
         {
             Debug.Assert(msg["MsgType"].Value<string>() == "8");
-            MiniOMS.Order order = _miniOMS.GetOrderByClOrdID(msg["ClOrdID"].Value<string>());
+			// find the order in the OMS
+			MiniOMS.Order order = _miniOMS.GetOrderByClOrdID(msg["ClOrdID"].Value<string>());
             if (order != null)
             {
-                switch (msg["OrdStatus"].Value<char>())
+				// update the order in the OMS
+				order.OrderID = msg["OrderID"].Value<ulong>();
+				order.OrdStatus = msg["OrdStatus"].Value<char>();
+				order.CumQty = msg["CumQty"].Value<ulong>();
+				order.CxlQty = msg["CxlQty"].Value<ulong>();
+				order.LastPx = msg["LastPx"].Value<ulong>();
+				order.LastShares = msg["LastShares"].Value<ulong>();
+				order.LeavesQty = msg["LeavesQty"].Value<ulong>();
+				order.Price = msg["Price"].Value<ulong>();
+				order.AvgPx = msg["AvgPx"].Value<ulong>();
+
+				// update the traded amount of the trading symbol (this is not considering amounts traded by other sessions)
+				if ( order.OrdStatus == OrdStatus.FILLED || order.OrdStatus == OrdStatus.PARTIALLY_FILLED )
+				{
+					if (order.Side == OrderSide.SELL) 
+					{
+						this._soldAmount += order.LastShares;
+						LogStatus(LogStatusType.INFO, "Updating the Sold Amount = " + this._soldAmount);
+					}
+				}
+
+				switch (order.OrdStatus)
                 {
-                    // -- If the order is still "alive", update the order data in the MiniOMS
+                    // -- If the order is still "alive", keep the order in the MiniOMS
                     case OrdStatus.NEW:
                     case OrdStatus.PARTIALLY_FILLED:
                     case OrdStatus.STOPPED:  // comming soon / work in progress
-                        order.OrderID = msg["OrderID"].Value<ulong>();
-                        order.OrdStatus = msg["OrdStatus"].Value<char>();
-                        order.CumQty = msg["CumQty"].Value<ulong>();
-                        order.CxlQty = msg["CxlQty"].Value<ulong>();
-                        order.LastPx = msg["LastPx"].Value<ulong>();
-                        order.LastShares = msg["LastShares"].Value<ulong>();
-                        order.LeavesQty = msg["LeavesQty"].Value<ulong>();
-                        order.Price = msg["Price"].Value<ulong>();
-                        order.AvgPx = msg["AvgPx"].Value<ulong>();
                         break;
                     // -- If the order is "dead", remove the order from the MiniOMS
                     case OrdStatus.CANCELED:

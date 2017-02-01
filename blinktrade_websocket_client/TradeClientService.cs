@@ -26,5 +26,10 @@ namespace Blinktrade
 		bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID);
         
 		ulong GetBalance(string currency);
+
+		ulong GetSoldAmount(/*string symbol*/);
+		//ulong GetBoughtAmount()
+		//ulong ResetSoldAmount();
+		//ulong ResetBoughAmount()
     }
 }
