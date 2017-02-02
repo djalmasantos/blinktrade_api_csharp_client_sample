@@ -253,6 +253,7 @@ namespace Blinktrade
                     case SystemEventType.EXECUTION_REPORT:
                         LogStatus(LogStatusType.WARN, "Receieved " + evt.evtType.ToString() + "\n" + evt.json.ToString());
                         ProcessExecutionReport(evt.json);
+						_tradingStrategy.runStrategy(webSocketConnection, _tradingSymbol);
                         break;
 
                     case SystemEventType.ORDER_LIST_RESPONSE:
@@ -515,7 +516,7 @@ namespace Blinktrade
             return false;
         }
 
-        private void ProcessExecutionReport(JObject msg)
+		private MiniOMS.Order ProcessExecutionReport(JObject msg)
         {
             Debug.Assert(msg["MsgType"].Value<string>() == "8");
 			// find the order in the OMS
@@ -570,6 +571,7 @@ namespace Blinktrade
             {
                 LogStatus(LogStatusType.ERROR, "Order not found by ClOrdID = " + msg["ClOrdID"].Value<string>());
             }
+			return order;
         }
 
         private static void show_usage(string program_name)
@@ -650,6 +652,8 @@ namespace Blinktrade
             try
             {
                 maxTradeSize = (ulong)(Double.Parse(args[5]) * 1e8);
+				if ( maxTradeSize < 10000)
+					throw new ArgumentException("Invalid Trade Size, must be at least 10,000 satoshis");
             }
             catch (Exception e)
             {

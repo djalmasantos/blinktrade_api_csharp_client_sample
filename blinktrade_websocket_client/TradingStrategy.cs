@@ -11,7 +11,8 @@ namespace Blinktrade
         private string _strategyBuyOrderClorid = null;
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minTradeSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
-        private ulong _maxTradeSize = 0;
+		private ulong _maxTradeSize = 0;
+		//private ulong _origMaxTradeSize = 0;
 		private ulong _buyTargetPrice = 0;
         private ulong _sellTargetPrice = 0;
 
@@ -35,9 +36,15 @@ namespace Blinktrade
 			set { _enabled = value; }
 		}
 
+		public ulong MinTradeSize 
+		{
+			get { return _minTradeSize; }
+		}
+
 		public TradingStrategy(ulong max_trade_size, ulong buy_target_price, ulong sell_target_price, char side, PriceType priceType)
         {
             _maxTradeSize = max_trade_size;
+			//_origMaxTradeSize = max_trade_size;
             _buyTargetPrice = buy_target_price;
             _sellTargetPrice = sell_target_price;
             _strategySide = side;
@@ -72,39 +79,12 @@ namespace Blinktrade
 				return;
 			}
 
-			// ** temporary workaround to support market pegged sell order strategy without plugins **
+			// ** temporary workaround to support market pegged sell order strategy without plugins**
 			if (_priceType == PriceType.PEGGED && _strategySide == OrderSide.SELL) 
 			{
-				// make the price float according to the MID Price Peg Or Last Price Peg (the highest)
+				// make the price float according to the MID Price requires the Security List for the trading symbol
 				SecurityStatus status = _tradeclient.GetSecurityStatus ("BLINK", symbol);
-				if (status != null) 
-				{
-					ulong maxAmountToSell = (ulong)(0.05 * 1e8);
-					if (_tradeclient.GetSoldAmount() >= maxAmountToSell)
-					{
-						LogStatus(LogStatusType.WARN, String.Format("Reached or exceeded the allowed max amount to sell : {0}", maxAmountToSell));
-						return;
-					}
-
-					// gather the magic element of the midprice
-					OrderBook orderBook = _tradeclient.GetOrderBook (symbol);
-					ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
-															OrderBook.OrdSide.SELL,
-															(ulong)(1 * 1e8),
-															_tradeclient.UserId);
-					
-					// calculate the mid price					
-					ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
-					Debug.Assert (_pegOffsetValue > 0);
-					_sellTargetPrice = midprice + _pegOffsetValue;
-					// TODO: MUST Provide a FLOOR for selling in the final strategy
-					ulong floor = (ulong)( 2935 * 1e8);
-					if ( _sellTargetPrice < floor ) {
-						_sellTargetPrice = floor;
-					}
-					
-				} 
-				else 
+				if (status == null)
 				{
 					LogStatus(
 						LogStatusType.WARN,
@@ -112,13 +92,45 @@ namespace Blinktrade
 							"Waiting Security Status BLINK:{0} to run Pegged strategy",
 							symbol)
 					);
-					// cannot run strategy without the Security Status for the trading symbol
 					return;
+				}
+
+				// check the remaining qty that can still be sold
+				const ulong maxAmountToSell = (ulong)(0.03 * 1e8); // TODO: make it an optional parameter
+				ulong theSoldAmount = _tradeclient.GetSoldAmount();
+				if (theSoldAmount < maxAmountToSell) 
+				{
+					ulong uAllowedAmountToSell = maxAmountToSell - theSoldAmount;
+					_maxTradeSize = _maxTradeSize < uAllowedAmountToSell ? _maxTradeSize : uAllowedAmountToSell;
+					_maxTradeSize = _maxTradeSize > _minTradeSize ? _maxTradeSize : _minTradeSize;
+				} 
+				else 
+				{
+					_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
+					LogStatus (LogStatusType.WARN, String.Format ("Cannot exceed the allowed max amount to sell : {0}", maxAmountToSell));
+					return;
+				}
+
+				// gather the magic element of the midprice
+				OrderBook orderBook = _tradeclient.GetOrderBook (symbol);
+				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
+														OrderBook.OrdSide.SELL,
+														(ulong)(1 * 1e8), // TODO: make it a parameter
+														_tradeclient.UserId);
+				
+				// calculate the mid price					
+				ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
+				Debug.Assert (_pegOffsetValue > 0);
+				_sellTargetPrice = midprice + _pegOffsetValue;
+
+				// check the selling FLOOR
+				ulong floor = (ulong)( 2935 * 1e8); // TODO: make it an optional parameter
+				if ( _sellTargetPrice < floor ) {
+					_sellTargetPrice = floor;
 				}
 			}
 
 			// run the strategy
-
 			if (_maxTradeSize > 0)
             {
                 webSocketConnection.EnableTestRequest = false;
@@ -142,7 +154,7 @@ namespace Blinktrade
             {
                 if (bestBid.UserId != _tradeclient.UserId)
                 {
-                    // buy @ 1 cent above the best price
+					// buy @ 1 cent above the best price (TODO: parameter for price increment)
                     ulong buyPrice = bestBid.Price + (ulong)(0.01 * 1e8);
                     if (buyPrice <= this._buyTargetPrice)
                     {
@@ -160,7 +172,7 @@ namespace Blinktrade
                         int position = (i < 0 ? ~i : i);
 						Debug.Assert (position > 0);
                         
-						// verificar se a profundidade vale a pena
+						// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
 						if (position > 5+1 && orderBook.DoesAmountExceedsLimit (
 							    					OrderBook.OrdSide.BUY,
 							    					position - 1, (ulong)(10 * 1e8))) 
@@ -220,7 +232,7 @@ namespace Blinktrade
             {
                 if (bestOffer.UserId != _tradeclient.UserId)
                 {
-                    // sell @ 1 cent bellow the best price
+					// sell @ 1 cent bellow the best price (TODO: parameter for price increment)
                     ulong sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
                     if (sellPrice >= _sellTargetPrice)
                     {
@@ -238,7 +250,7 @@ namespace Blinktrade
                         int position = (i < 0 ? ~i : i);
 						Debug.Assert (position > 0);
                         
-						// verificar se a profundidade vale a pena
+						// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
 						if (position > 5+1 && orderBook.DoesAmountExceedsLimit (
 							OrderBook.OrdSide.SELL,
 							position - 1, (ulong)(10 * 1e8))) 
