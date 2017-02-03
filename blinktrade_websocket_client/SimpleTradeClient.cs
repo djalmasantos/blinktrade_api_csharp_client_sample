@@ -251,10 +251,12 @@ namespace Blinktrade
 
                     // --- Order Entry Replies ---
                     case SystemEventType.EXECUTION_REPORT:
-                        LogStatus(LogStatusType.WARN, "Receieved " + evt.evtType.ToString() + "\n" + evt.json.ToString());
-                        ProcessExecutionReport(evt.json);
-						_tradingStrategy.runStrategy(webSocketConnection, _tradingSymbol);
-                        break;
+						{
+	                        LogStatus(LogStatusType.WARN, "Receieved " + evt.evtType.ToString() + "\n" + evt.json.ToString());
+							MiniOMS.IOrder order = ProcessExecutionReport(evt.json);
+							_tradingStrategy.OnExecutionReport(webSocketConnection, order);
+						}
+						break;
 
                     case SystemEventType.ORDER_LIST_RESPONSE:
                         {
@@ -524,7 +526,7 @@ namespace Blinktrade
             if (order != null)
             {
 				// update the order in the OMS
-				order.OrderID = msg["OrderID"].Value<ulong>();
+				order.OrderID = msg.GetValue("OrderID").Type != JTokenType.Null ? msg["OrderID"].Value<ulong>() : 0;
 				order.OrdStatus = msg["OrdStatus"].Value<char>();
 				order.CumQty = msg["CumQty"].Value<ulong>();
 				order.CxlQty = msg["CxlQty"].Value<ulong>();
@@ -555,8 +557,8 @@ namespace Blinktrade
                     case OrdStatus.CANCELED:
                     case OrdStatus.REJECTED:
                     case OrdStatus.FILLED:
-                        bool retVal = _miniOMS.RemoveOrderByClOrdID(msg["ClOrdID"].Value<string>());
-                        Debug.Assert(retVal);
+                        //bool retVal = _miniOMS.RemoveOrderByClOrdID(msg["ClOrdID"].Value<string>());
+                        //Debug.Assert(retVal);
                         break;
 
                     default:

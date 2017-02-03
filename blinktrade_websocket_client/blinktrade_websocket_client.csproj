@@ -46,6 +46,8 @@
     <WarningLevel>4</WarningLevel>
     <Commandlineparameters>"wss://api.testnet.blinktrade.com/trade/" 5 BTCUSD SELL PEGGED 0.1 0 5 djalma abc12345</Commandlineparameters>
     <DebugSymbols>true</DebugSymbols>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <DebugType>pdbonly</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json">

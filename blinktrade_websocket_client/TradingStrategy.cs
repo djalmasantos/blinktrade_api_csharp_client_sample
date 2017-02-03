@@ -11,6 +11,7 @@ namespace Blinktrade
         private string _strategyBuyOrderClorid = null;
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minTradeSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
+		private const ulong _maxAmountToSell = (ulong)(0.02 * 1e8); // TODO: make it an optional parameter
 		private ulong _maxTradeSize = 0;
 		//private ulong _origMaxTradeSize = 0;
 		private ulong _buyTargetPrice = 0;
@@ -69,7 +70,24 @@ namespace Blinktrade
                 LogStatusEvent(type, message);
         }
 
-        public void runStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
+		public void OnExecutionReport(IWebSocketClientConnection webSocketConnection, MiniOMS.IOrder order)
+		{
+			if (_priceType == PriceType.PEGGED && _strategySide == OrderSide.SELL)
+			{
+				if (order.OrdStatus == OrdStatus.FILLED || order.OrdStatus == OrdStatus.PARTIALLY_FILLED) 
+				{
+					ulong theSoldAmount = _tradeclient.GetSoldAmount();
+					if (theSoldAmount >= _maxAmountToSell) 
+					{
+						LogStatus (LogStatusType.WARN, String.Format ("[OnExecutionReport] Cannot exceed the allowed max amount to sell : {0} {1}", theSoldAmount, _maxAmountToSell));
+						_tradeclient.CancelOrderByClOrdID (webSocketConnection, _strategySellOrderClorid);
+					}
+				}
+			}
+
+		}
+
+		public void runStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
         {
             // Run the strategy to try to have an order on at least one side of the book according to fixed price range 
 			// but never executing as a taker
@@ -96,18 +114,17 @@ namespace Blinktrade
 				}
 
 				// check the remaining qty that can still be sold
-				const ulong maxAmountToSell = (ulong)(0.03 * 1e8); // TODO: make it an optional parameter
 				ulong theSoldAmount = _tradeclient.GetSoldAmount();
-				if (theSoldAmount < maxAmountToSell) 
+				if (theSoldAmount < _maxAmountToSell) 
 				{
-					ulong uAllowedAmountToSell = maxAmountToSell - theSoldAmount;
+					ulong uAllowedAmountToSell = _maxAmountToSell - theSoldAmount;
 					_maxTradeSize = _maxTradeSize < uAllowedAmountToSell ? _maxTradeSize : uAllowedAmountToSell;
 					_maxTradeSize = _maxTradeSize > _minTradeSize ? _maxTradeSize : _minTradeSize;
 				} 
 				else 
 				{
+					LogStatus(LogStatusType.WARN, String.Format ("[runStrategy] Cannot exceed the allowed max amount to sell : {0} {1}", theSoldAmount, _maxAmountToSell));
 					_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
-					LogStatus (LogStatusType.WARN, String.Format ("Cannot exceed the allowed max amount to sell : {0}", maxAmountToSell));
 					return;
 				}
 
