@@ -503,7 +503,7 @@ namespace Blinktrade
             MiniOMS.Order orderToCancel = _miniOMS.GetOrderByClOrdID(clOrdID);
             if (orderToCancel != null)
             {
-                if (orderToCancel.OrdStatus != OrdStatus.PENDING_CANCEL)
+				if (orderToCancel.OrdStatus != OrdStatus.PENDING_CANCEL && orderToCancel.OrdStatus != OrdStatus.CANCELED)
                 {
                     orderToCancel.OrdStatus = OrdStatus.PENDING_CANCEL;
                     JObject order_cancel_request = new JObject();
