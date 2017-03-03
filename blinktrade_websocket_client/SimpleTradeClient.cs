@@ -343,7 +343,10 @@ namespace Blinktrade
 							_tradingStrategy.runStrategy(webSocketConnection, _tradingSymbol);
                         }
                         break;
-                    // Following events are ignored because inheritted behaviour is sufficient for this prototype
+				case SystemEventType.TRADE_HISTORY_RESPONSE:
+					LogStatus(LogStatusType.WARN, "TODO: Handle : " + evt.evtType.ToString());
+					break;
+					// Following events are ignored because inheritted behaviour is sufficient for this prototype
                     case SystemEventType.OPENED:
                     case SystemEventType.CLOSED:
                     case SystemEventType.ERROR:
@@ -365,7 +368,7 @@ namespace Blinktrade
 
         private void StartInitialRequestsAfterLogon(IWebSocketClientConnection connection)
         {
-            // 1. cancel all user orders 
+			// 1. cancel all user orders 
             SendRequestToCancelAllOrders(connection); // not necessary if cancel on disconnect is active
 
             // 2. send request for all "open" orders
@@ -418,6 +421,16 @@ namespace Blinktrade
             securitystatus_request["FingerPrint"] = connection.Device.FingerPrint;
             securitystatus_request["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(securitystatus_request.ToString());
+
+			// 6. send the trade history request
+			JObject trades_request = new JObject();
+			trades_request["MsgType"] = "U32";
+			trades_request["TradeHistoryReqID"] = connection.NextOutgoingSeqNum();
+			//trades_request["Filter"] = new JArray("Symbol eq 'BTCBRL'"); // not working
+			//trades_request["SymbolList"] = new JArray("BTCBRL"); // not working
+			trades_request["FingerPrint"] = connection.Device.FingerPrint;
+			trades_request["STUNTIP"] = connection.Device.Stuntip;
+			connection.SendMessage(trades_request.ToString());
         }
 
         private void SendRequestForOpenOrders(IWebSocketClientConnection connection, int page = 0)
