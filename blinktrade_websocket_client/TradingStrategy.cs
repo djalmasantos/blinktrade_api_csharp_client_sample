@@ -20,7 +20,7 @@ namespace Blinktrade
 		private double _startTime;
         private long _cloridSeqNum = 0;
         private ITradeClientService _tradeclient;
-		private volatile bool _enabled = true;
+		private volatile bool _enabled = false; // temp disable
 
 		// ** temporary workaround to support pegged order strategy without plugins **
 		public enum PriceType { FIXED, PEGGED }

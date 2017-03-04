@@ -17,6 +17,7 @@ using System.Runtime.InteropServices;
 
 namespace Blinktrade
 {
+	//class 
 	class SimpleTradeClient : ITradeClientService
     {
         private int _brokerId;
@@ -26,6 +27,8 @@ namespace Blinktrade
         private Dictionary<string, OrderBook> _allOrderBooks = new Dictionary<string, OrderBook>();
 		private SortedDictionary<string, SecurityStatus> _securityStatusEntries = new SortedDictionary<string, SecurityStatus>();
         private MiniOMS _miniOMS = new MiniOMS();
+		ShortPeriodTickBasedVWAP _vwapForTradingSym;
+		
         private TradingStrategy _tradingStrategy;
 		private IWebSocketClientProtocolEngine _protocolEngine;
 		private ulong _soldAmount = 0;
@@ -37,6 +40,7 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
         }
 
         public ulong UserId
@@ -237,11 +241,26 @@ namespace Blinktrade
                         }
                         break;
 
-                    // --- Other marketdata events
-                    case SystemEventType.TRADING_SESSION_STATUS:
-                    case SystemEventType.TRADE:
-                        break;
+					case SystemEventType.TRADE:
+						{
+							JObject msg = evt.json;
+							LogStatus(LogStatusType.WARN, "Receieved Market Data Event " + evt.evtType.ToString());
 
+						_vwapForTradingSym.pushTrade( 
+								new ShortPeriodTickBasedVWAP.Trade(
+									msg["TradeID"].Value<ulong>(),
+									msg["Symbol"].Value<string>(),
+									msg["MDEntryPx"].Value<ulong>(),
+									msg["MDEntrySize"].Value<ulong>(),
+									String.Format("{0} {1}", msg["MDEntryDate"].Value<string>(),msg["MDEntryTime"].Value<string>())
+								)
+							);
+
+						}
+						break;
+				
+                    case SystemEventType.TRADING_SESSION_STATUS:
+						break;
 
                     case SystemEventType.MARKET_DATA_INCREMENTAL_REFRESH:
                         LogStatus(LogStatusType.WARN, "Receieved Market Data Incremental Refresh : " + evt.evtType.ToString());
@@ -344,7 +363,52 @@ namespace Blinktrade
                         }
                         break;
 				case SystemEventType.TRADE_HISTORY_RESPONSE:
-					LogStatus(LogStatusType.WARN, "TODO: Handle : " + evt.evtType.ToString());
+					{
+						JObject msg = evt.json;
+						LogStatus(LogStatusType.WARN, 
+							"Received " + evt.evtType.ToString() + " : " + "Page=" + msg["Page"].Value<string>()
+						);
+						// TODO: FETCH the requested period i.e last 10 min. trades
+						JArray all_trades = msg["TradeHistoryGrp"].Value<JArray>();
+
+						if (all_trades != null && all_trades.Count > 0)
+						{
+							var columns = msg["Columns"].Value<JArray>();
+							Dictionary<string, int> indexOf = new Dictionary<string, int>();
+							int index = 0;
+							foreach (JToken col in columns)
+							{
+								indexOf.Add(col.Value<string>(), index++);
+							}
+
+							foreach (JArray trade in all_trades)
+							{
+								_vwapForTradingSym.pushTrade( 
+									new ShortPeriodTickBasedVWAP.Trade(
+										trade[indexOf["TradeID"]].Value<ulong>(),
+										trade[indexOf["Market"]].Value<string>(),
+										trade[indexOf["Price"]].Value<ulong>(),
+										trade[indexOf["Size"]].Value<ulong>(),
+										trade[indexOf["Created"]].Value<string>()
+									)
+								);
+							}
+
+							// check and request the next page
+							if (all_trades.Count >= msg["PageSize"].Value<int>())
+							{
+								LogStatus(LogStatusType.INFO, "TODO: Requesting Page " + msg["Page"].Value<int>() + 1);
+								//TODO: create a function to call here and request a new page if requested period in minutes is not satified
+							}
+							else
+							{
+								LogStatus(LogStatusType.INFO, "EOT - no more Trade History pages to process.");
+							}
+
+							LogStatus(LogStatusType.INFO, String.Format("VWAP = {0}", _vwapForTradingSym.calculateVWAP()));
+						}
+					}
+					//
 					break;
 					// Following events are ignored because inheritted behaviour is sufficient for this prototype
                     case SystemEventType.OPENED:
@@ -389,7 +453,7 @@ namespace Blinktrade
             marketdata_request["SubscriptionRequestType"] = "1";
             marketdata_request["MarketDepth"] = 0;
             marketdata_request["MDUpdateType"] = "1";
-            marketdata_request["MDEntryTypes"] = new JArray("0", "1"); // bid, offer
+            marketdata_request["MDEntryTypes"] = new JArray("0", "1", "2"); // bid, offer, trade
             marketdata_request["Instruments"] = new JArray(_tradingSymbol);
             marketdata_request["FingerPrint"] = connection.Device.FingerPrint;
             marketdata_request["STUNTIP"] = connection.Device.Stuntip;
