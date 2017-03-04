@@ -36,7 +36,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Externalconsole>true</Externalconsole>
-    <Commandlineparameters>"wss://api.blinktrade.com/trade/" 4 BTCBRL BOTH DEFAULT 0.25 3000 5000 drsantosfilho "jKernel1976?/" 916797</Commandlineparameters>
+    <Commandlineparameters>"wss://api.testnet.blinktrade.com/trade/" 5 BTCUSD SELL PEGGED 0.1 0 5 djalma abc12345</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>

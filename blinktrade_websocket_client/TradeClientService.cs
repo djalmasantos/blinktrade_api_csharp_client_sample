@@ -11,12 +11,10 @@ namespace Blinktrade
         MiniOMS miniOMS { get; }
         
 		OrderBook GetOrderBook(string symbol);
-
 		SecurityStatus GetSecurityStatus(string market, string symbol);
-        
+
 		ulong UserId { get; }
-        
-		int BrokerId { get; }
+        int BrokerId { get; }
         
 		string SendOrder(IWebSocketClientConnection connection, 
 			string symbol, ulong qty, ulong price, 
@@ -28,6 +26,9 @@ namespace Blinktrade
 		ulong GetBalance(string currency);
 
 		ulong GetSoldAmount(/*string symbol*/);
+		ulong CalculateVWAP(/*string symbol*/);
+		ulong GetLastPrice(/*string symbol*/);
+
 		//ulong GetBoughtAmount()
 		//ulong ResetSoldAmount();
 		//ulong ResetBoughAmount()

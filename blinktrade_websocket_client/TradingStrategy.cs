@@ -20,7 +20,7 @@ namespace Blinktrade
 		private double _startTime;
         private long _cloridSeqNum = 0;
         private ITradeClientService _tradeclient;
-		private volatile bool _enabled = false; // temp disable
+		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
 		public enum PriceType { FIXED, PEGGED }
@@ -100,7 +100,9 @@ namespace Blinktrade
 			// ** temporary workaround to support market pegged sell order strategy without plugins**
 			if (_priceType == PriceType.PEGGED && _strategySide == OrderSide.SELL) 
 			{
-				// make the price float according to the MID Price requires the Security List for the trading symbol
+				// make the price float according to the MID Price 
+				/*
+				// requires the Security List for the trading symbol
 				SecurityStatus status = _tradeclient.GetSecurityStatus ("BLINK", symbol);
 				if (status == null)
 				{
@@ -112,6 +114,7 @@ namespace Blinktrade
 					);
 					return;
 				}
+				*/
 
 				// check the remaining qty that can still be sold
 				ulong theSoldAmount = _tradeclient.GetSoldAmount();
@@ -128,15 +131,33 @@ namespace Blinktrade
 					return;
 				}
 
-				// gather the magic element of the midprice
-				OrderBook orderBook = _tradeclient.GetOrderBook (symbol);
+				// gather the data to calculate the midprice
+				OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
+
+				// instead of bestAsk let's use the Price reached if one decides to buy 1 BTC
+				ulong maxPriceToBuy1BTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
+					OrderBook.OrdSide.SELL,
+					(ulong)(1 * 1e8), // TODO: make it a parameter
+					_tradeclient.UserId);
+				
+
+				// gather the magic element of the midprice (i.e. price to buy 10 BTC)
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
 														(ulong)(10 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
+
+				
+
+				// instead of the last price let's use the VWAP (short period tick based i.e last 30 min.)
+				ulong vwap = _tradeclient.CalculateVWAP();
+				ulong lastPx = _tradeclient.GetLastPrice();
+				ulong marketPrice = vwap > lastPx ? vwap : lastPx;
 				// calculate the mid price					
-				ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
+				//ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
+
+				ulong midprice = (ulong)((orderBook.BestBid.Price + maxPriceToBuy1BTC + maxPriceToBuyXBTC + marketPrice) / 4);
 				Debug.Assert (_pegOffsetValue > 0);
 				_sellTargetPrice = midprice + _pegOffsetValue;
 

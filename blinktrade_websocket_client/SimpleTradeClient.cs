@@ -81,6 +81,16 @@ namespace Blinktrade
 			return _soldAmount;
 		}
 
+		public ulong CalculateVWAP(/*string symbol*/)
+		{
+			return this._vwapForTradingSym.calculateVWAP ();
+		}
+
+		public ulong GetLastPrice(/*string symbol*/)
+		{
+			return this._vwapForTradingSym.getLastPx();
+		}
+
 		public SecurityStatus GetSecurityStatus(string market, string symbol)
 		{
 			string key = market + ":" + symbol;
@@ -120,6 +130,8 @@ namespace Blinktrade
                             webSocketConnection.EnableTestRequest = true;
                             // run the trading strategy to buy and sell orders based on the top of the book
                             _tradingStrategy.runStrategy(webSocketConnection, symbol);
+							// TODO: remove the temp dump bellow
+							this._vwapForTradingSym.PrintTradesAndTheVWAP(); 
                         }
                         break;
 
@@ -244,17 +256,29 @@ namespace Blinktrade
 					case SystemEventType.TRADE:
 						{
 							JObject msg = evt.json;
-							LogStatus(LogStatusType.WARN, "Receieved Market Data Event " + evt.evtType.ToString());
+							LogStatus(LogStatusType.WARN, "Receieved Market Data Event " + evt.evtType.ToString() + msg);
 
-						_vwapForTradingSym.pushTrade( 
-								new ShortPeriodTickBasedVWAP.Trade(
-									msg["TradeID"].Value<ulong>(),
-									msg["Symbol"].Value<string>(),
+							_vwapForTradingSym.pushTrade( 
+									new ShortPeriodTickBasedVWAP.Trade(
+										msg["TradeID"].Value<ulong>(),
+										msg["Symbol"].Value<string>(),
+										msg["MDEntryPx"].Value<ulong>(),
+										msg["MDEntrySize"].Value<ulong>(),
+										String.Format("{0} {1}", msg["MDEntryDate"].Value<string>(),msg["MDEntryTime"].Value<string>())
+									)
+							);
+							/*
+							LogStatus(
+								LogStatusType.INFO,
+								String.Format(
+									"New Trade : VWAP = {0} | LastPx = {1} - {2} | Size = {3}", 
+									_vwapForTradingSym.calculateVWAP(), 
+									_vwapForTradingSym.getLastPx(), 
 									msg["MDEntryPx"].Value<ulong>(),
-									msg["MDEntrySize"].Value<ulong>(),
-									String.Format("{0} {1}", msg["MDEntryDate"].Value<string>(),msg["MDEntryTime"].Value<string>())
+									msg["MDEntrySize"].Value<ulong>()
 								)
 							);
+							*/
 
 						}
 						break;
@@ -362,54 +386,55 @@ namespace Blinktrade
 							_tradingStrategy.runStrategy(webSocketConnection, _tradingSymbol);
                         }
                         break;
-				case SystemEventType.TRADE_HISTORY_RESPONSE:
-					{
-						JObject msg = evt.json;
-						LogStatus(LogStatusType.WARN, 
-							"Received " + evt.evtType.ToString() + " : " + "Page=" + msg["Page"].Value<string>()
-						);
-						// TODO: FETCH the requested period i.e last 10 min. trades
-						JArray all_trades = msg["TradeHistoryGrp"].Value<JArray>();
-
-						if (all_trades != null && all_trades.Count > 0)
+					case SystemEventType.TRADE_HISTORY_RESPONSE:
 						{
-							var columns = msg["Columns"].Value<JArray>();
-							Dictionary<string, int> indexOf = new Dictionary<string, int>();
-							int index = 0;
-							foreach (JToken col in columns)
-							{
-								indexOf.Add(col.Value<string>(), index++);
-							}
+							JObject msg = evt.json;
+							LogStatus(LogStatusType.WARN, 
+								"Received " + evt.evtType.ToString() + " : " + "Page=" + msg["Page"].Value<string>()
+							);
+							/*
+							JArray all_trades = msg["TradeHistoryGrp"].Value<JArray>();
 
-							foreach (JArray trade in all_trades)
+							if (all_trades != null && all_trades.Count > 0)
 							{
-								_vwapForTradingSym.pushTrade( 
-									new ShortPeriodTickBasedVWAP.Trade(
-										trade[indexOf["TradeID"]].Value<ulong>(),
-										trade[indexOf["Market"]].Value<string>(),
-										trade[indexOf["Price"]].Value<ulong>(),
-										trade[indexOf["Size"]].Value<ulong>(),
-										trade[indexOf["Created"]].Value<string>()
-									)
-								);
-							}
+								var columns = msg["Columns"].Value<JArray>();
+								Dictionary<string, int> indexOf = new Dictionary<string, int>();
+								int index = 0;
+								foreach (JToken col in columns)
+								{
+									indexOf.Add(col.Value<string>(), index++);
+								}
 
-							// check and request the next page
-							if (all_trades.Count >= msg["PageSize"].Value<int>())
-							{
-								LogStatus(LogStatusType.INFO, "TODO: Requesting Page " + msg["Page"].Value<int>() + 1);
-								//TODO: create a function to call here and request a new page if requested period in minutes is not satified
-							}
-							else
-							{
-								LogStatus(LogStatusType.INFO, "EOT - no more Trade History pages to process.");
-							}
+								foreach (JArray trade in all_trades)
+								{
+									_vwapForTradingSym.pushTrade( 
+										new ShortPeriodTickBasedVWAP.Trade(
+											trade[indexOf["TradeID"]].Value<ulong>(),
+											trade[indexOf["Market"]].Value<string>(),
+											trade[indexOf["Price"]].Value<ulong>(),
+											trade[indexOf["Size"]].Value<ulong>(),
+											trade[indexOf["Created"]].Value<string>()
+										)
+									);
+								}
 
-							LogStatus(LogStatusType.INFO, String.Format("VWAP = {0}", _vwapForTradingSym.calculateVWAP()));
+								// check and request the next page
+								if (all_trades.Count >= msg["PageSize"].Value<int>())
+								{
+									LogStatus(LogStatusType.INFO, "TODO: Requesting Page " + msg["Page"].Value<int>() + 1);
+									//TODO: create a function to call here and request a new page if requested period in minutes is not satified
+								}
+								else
+								{
+									LogStatus(LogStatusType.INFO, "EOT - no more Trade History pages to process.");
+								}
+
+								LogStatus(LogStatusType.INFO, String.Format("VWAP = {0}", _vwapForTradingSym.calculateVWAP()));
+							}
+							*/
 						}
-					}
-					//
-					break;
+						//
+						break;
 					// Following events are ignored because inheritted behaviour is sufficient for this prototype
                     case SystemEventType.OPENED:
                     case SystemEventType.CLOSED:
