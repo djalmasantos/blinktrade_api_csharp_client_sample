@@ -14,70 +14,92 @@ namespace Blinktrade
 				this.symbol = symbol;
 				this.price = price;
 				this.size = size;
-				this.created = created;
+				this.created = DateTime.ParseExact(created, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
 			}
 			public ulong tradeID;
 			public string symbol;
 			public ulong price;
 			public ulong size;
-			public string created;
+			public DateTime created;
 		}
 
 		private List<Trade> _lastTrades = new List<Trade>();
 		private string _symbol;
-		private ulong _allowedPeriodInMin;
+		private TimeSpan _minutesOffset;
 		private double _cum_price_mul_size;
 		private double _cum_volume;
 
-		public ShortPeriodTickBasedVWAP(string symbol, ulong periodInMinutes)
+
+		public ShortPeriodTickBasedVWAP(string symbol, ulong periodInMinutes = 0)
 		{
 			_symbol = symbol;
-			_allowedPeriodInMin = periodInMinutes;
-			reset ();
-		}
-
-		public void reset(List<Trade> listOftrades = null)
-		{
 			_cum_price_mul_size = 0;
 			_cum_volume = 0;
-			_lastTrades.Clear();
-			if (listOftrades != null && listOftrades.Count > 0) 
-			{
-				// TODO: sort the listOftrades chronologically and push the trades
-			}
+			setPeriod(periodInMinutes);
+		}
 
+		public void setPeriod(ulong periodInMinutes)
+		{
+			ulong offset;
+			if (periodInMinutes < 1) 
+				offset = 1; // minimum 1 minute
+			else if (periodInMinutes > 1440) 
+				offset = 1440; // max intraday
+			else
+				offset = periodInMinutes;
+
+			_minutesOffset = new TimeSpan(0, (int)(offset), 0);
 		}
 
 		public void pushTrade(Trade trade)
 		{
 			if ( trade.symbol == this._symbol )
 			{
+				// update the cumulative values
 				_cum_price_mul_size += ((double)(trade.price / 1e8) * (double)(trade.size / 1e8));
 				_cum_volume += (double)(trade.size / 1e8);
-				//_cum_price_mul_size += (trade.price * trade.size);
-				//_cum_volume += trade.size;
-				double vwap = _cum_price_mul_size / _cum_volume;
-				ulong vwapUlong = (ulong)(vwap * 1e8);
-				Console.WriteLine("{0} | {1} | {2} | {3} | {4}", trade.price, vwapUlong, vwap, trade.tradeID, trade.created);
+
+				// purge the old trades based in the desired vwap period
+				DateTime dtLimit = trade.created - _minutesOffset;
+				while (_lastTrades.Count > 0)
+				{
+					var oldestTrade = _lastTrades[0];
+					if ( oldestTrade.created < dtLimit )
+					{
+						// subtract the old trade
+						_cum_price_mul_size -= ((double)(oldestTrade.price / 1e8) * (double)(oldestTrade.size / 1e8));
+						_cum_volume -= (double)(oldestTrade.size / 1e8);
+						_lastTrades.RemoveAt(0);
+						continue;
+					}
+					break;
+				}
 				_lastTrades.Add(trade);
-				// TODO: purge the old trades based in _allowedPeriodInMin (subtract trade data in the calc)
 			}
 		}
 
 		public ulong calculateVWAP()
 		{
-			if (_cum_price_mul_size > 0 && _cum_volume > 0) 
-				return (ulong)(_cum_price_mul_size / _cum_volume * 1e8);
+			if ( _cum_volume > 0 ) 
+				return (ulong)(Math.Round(_cum_price_mul_size / _cum_volume, 2) * 1e8);
 			else
 				return 0;
 		}
 
-		/*
+
 		public ulong getLastPx()
 		{
-			return 0;
+			return _lastTrades.Count > 0 ? _lastTrades[_lastTrades.Count-1].price : 0;
 		}
-		*/
+
+		public void PrintTradesAndTheVWAP()
+		{
+			foreach (var t in this._lastTrades) {
+				Console.WriteLine ("{0} | {1} | {2} | {3}", t.tradeID, t.created.ToString (), t.price, t.size);
+			}
+			Console.WriteLine ("VWAP = {0}", calculateVWAP ());
+		}
+
 
 	}
 }
