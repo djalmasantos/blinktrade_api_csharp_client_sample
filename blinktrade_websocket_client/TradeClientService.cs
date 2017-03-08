@@ -13,6 +13,8 @@ namespace Blinktrade
 		OrderBook GetOrderBook(string symbol);
 		SecurityStatus GetSecurityStatus(string market, string symbol);
 
+		string GetTradingSymbol();
+
 		ulong UserId { get; }
         int BrokerId { get; }
         

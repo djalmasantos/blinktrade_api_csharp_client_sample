@@ -20,6 +20,7 @@ namespace Blinktrade
 		private double _startTime;
         private long _cloridSeqNum = 0;
         private ITradeClientService _tradeclient;
+
 		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
@@ -29,7 +30,11 @@ namespace Blinktrade
         
 		public event LogStatusDelegate LogStatusEvent;
 
-        public ITradeClientService tradeclient { set { _tradeclient = value; } }
+        public ITradeClientService tradeclient 
+		{
+			set { _tradeclient = value; } 
+			get { return _tradeclient; }
+		}
 
 		public bool Enabled 
 		{
@@ -59,7 +64,57 @@ namespace Blinktrade
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
         }
 
-        private string MakeClOrdId()
+		private Object connLock = new Object();  
+		private IWebSocketClientConnection _connection = null; // might change to a list of connections in the future
+
+		public IWebSocketClientConnection activeConnection
+		{
+			get 
+			{ 
+				lock (connLock) 
+				{
+					return _connection;
+				} 
+			}
+		}
+
+		public void OnStart(IWebSocketClientConnection connection)
+		{
+			lock (connLock) 
+			{ 
+				_connection = connection; 
+			}
+
+			// a partir daqui se torna "seguro" acessar os dados do tradeclient e ate mesmo enviar ordens de compra e venda usando o connection
+			Console.WriteLine("Func = {0} : ThreadID={1}" , "OnStart", System.Threading.Thread.CurrentThread.ManagedThreadId);
+			var saldoBTC = tradeclient.GetBalance("BTC");
+			Console.WriteLine("BTC = {0}", saldoBTC);
+
+			var saldoFiat = tradeclient.GetBalance(tradeclient.GetTradingSymbol().Substring(3));
+			Console.WriteLine("FIAT = {0}", saldoFiat);
+
+			var bookBestBid = tradeclient.GetOrderBook(tradeclient.GetTradingSymbol()).BestBid.Price;
+			Console.WriteLine("BID = {0}", bookBestBid);
+
+			var bookBestOffer = tradeclient.GetOrderBook(tradeclient.GetTradingSymbol()).BestOffer.Price;
+			Console.WriteLine("OFFER = {0}", bookBestOffer);
+
+			var vwap = tradeclient.CalculateVWAP();
+			Console.WriteLine("VWAP = {0}", vwap);
+			Console.WriteLine("IsConnected : {0}", connection.IsConnected);
+			Console.WriteLine("-------------------------------------------------------------------");
+		}
+
+
+		public void OnClose(IWebSocketClientConnection connection)
+		{
+			lock (connLock) 
+			{
+				_connection = null;
+			}
+		}
+
+		private string MakeClOrdId()
         {
             return "BLKTRD-" + _startTime.ToString() + "-" + Interlocked.Increment(ref this._cloridSeqNum).ToString();
         }

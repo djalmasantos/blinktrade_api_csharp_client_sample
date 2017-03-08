@@ -76,6 +76,11 @@ namespace Blinktrade
                 return 0;
         }
 
+		public string GetTradingSymbol()
+		{
+			return _tradingSymbol;
+		}
+
 		public ulong GetSoldAmount(/*string symbol*/)
 		{
 			return _soldAmount;
@@ -132,6 +137,9 @@ namespace Blinktrade
                             _tradingStrategy.runStrategy(webSocketConnection, symbol);
 							// TODO: remove the temp dump bellow
 							this._vwapForTradingSym.PrintTradesAndTheVWAP(); 
+							// example how to notify the application to start
+							this._tradingStrategy.OnStart(webSocketConnection);
+							
                         }
                         break;
 
@@ -359,7 +367,10 @@ namespace Blinktrade
                                 }
                                 else
                                 {
-                                    LogStatus(LogStatusType.INFO, "EOT - no more Security List pages to process.");
+                                    LogStatus(LogStatusType.INFO, "EOT - no more Order List pages to process.");
+									// notify application that all requestes where replied, 
+									// assuming the ORDER_LIST_REQUEST was the last in the StartInitialRequestsAfterLogon
+									_tradingStrategy.OnStart(webSocketConnection);
                                 }
                             }
                         }
@@ -435,9 +446,14 @@ namespace Blinktrade
 						}
 						//
 						break;
+
+					case SystemEventType.CLOSED:
+						// notify the application the connection was broken
+						_tradingStrategy.OnClose(webSocketConnection);
+						break;
 					// Following events are ignored because inheritted behaviour is sufficient for this prototype
                     case SystemEventType.OPENED:
-                    case SystemEventType.CLOSED:
+                    
                     case SystemEventType.ERROR:
                     case SystemEventType.LOGIN_ERROR:
                     case SystemEventType.HEARTBEAT:
@@ -460,10 +476,7 @@ namespace Blinktrade
 			// 1. cancel all user orders 
             SendRequestToCancelAllOrders(connection); // not necessary if cancel on disconnect is active
 
-            // 2. send request for all "open" orders
-            SendRequestForOpenOrders(connection);
-            
-            // 3. send the balance request
+            // 2. send the balance request
             JObject balance_request = new JObject();
             balance_request["MsgType"] = "U2";
             balance_request["BalanceReqID"] = connection.NextOutgoingSeqNum();
@@ -471,7 +484,7 @@ namespace Blinktrade
             balance_request["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(balance_request.ToString());
 
-            // 4. send market data request
+            // 3. send market data request
             JObject marketdata_request = new JObject();
             marketdata_request["MsgType"] = "V";
             marketdata_request["MDReqID"] = connection.NextOutgoingSeqNum();
@@ -484,7 +497,7 @@ namespace Blinktrade
             marketdata_request["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(marketdata_request.ToString());
 
-            // 5. send security status request
+            // 4. send security status request
             JObject securitystatus_request = new JObject();
             securitystatus_request["MsgType"] = "e";
             securitystatus_request["SecurityStatusReqID"] = connection.NextOutgoingSeqNum();
@@ -511,7 +524,7 @@ namespace Blinktrade
             securitystatus_request["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(securitystatus_request.ToString());
 
-			// 6. send the trade history request
+			// 5. send the trade history request
 			JObject trades_request = new JObject();
 			trades_request["MsgType"] = "U32";
 			trades_request["TradeHistoryReqID"] = connection.NextOutgoingSeqNum();
@@ -520,6 +533,9 @@ namespace Blinktrade
 			trades_request["FingerPrint"] = connection.Device.FingerPrint;
 			trades_request["STUNTIP"] = connection.Device.Stuntip;
 			connection.SendMessage(trades_request.ToString());
+
+			// 6. send request for all "open" orders
+			SendRequestForOpenOrders(connection);
         }
 
         private void SendRequestForOpenOrders(IWebSocketClientConnection connection, int page = 0)
@@ -860,7 +876,35 @@ namespace Blinktrade
 				#else
 					Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine);
 				#endif
-				task.Wait();
+
+				task.Wait(3000); // sincronizacao com o OnStart (TODO: criar mecanismo melhor)
+
+				// a partir daqui se torna "seguro" acessar os dados do tradeclient e ate mesmo enviar ordens de compra e venda usando o connection
+				Console.WriteLine("Func = {0} : ThreadID={1}" , "Main", System.Threading.Thread.CurrentThread.ManagedThreadId);
+				var saldoBTC = tradeclient.GetBalance("BTC");
+				Console.WriteLine("BTC = {0}", saldoBTC);
+
+				var saldoFiat = tradeclient.GetBalance(tradeclient.GetTradingSymbol().Substring(3));
+				Console.WriteLine("FIAT = {0}", saldoFiat);
+
+				var bookBestBid = tradeclient.GetOrderBook(tradeclient.GetTradingSymbol()).BestBid.Price;
+				Console.WriteLine("BID = {0}", bookBestBid);
+
+				var bookBestOffer = tradeclient.GetOrderBook(tradeclient.GetTradingSymbol()).BestOffer.Price;
+				Console.WriteLine("OFFER = {0}", bookBestOffer);
+
+				var vwap = tradeclient.CalculateVWAP();
+				Console.WriteLine("VWAP = {0}", vwap);
+				// para acessar o connection
+
+				// poderia usar tradeclient e strategy.activeConnection para envio de ordens
+				Console.WriteLine("IsConnected : {0}", strategy.activeConnection.IsConnected);
+				Console.WriteLine("-------------------------------------------------------------------");
+
+
+
+
+				task.Wait(); // aguardar até a Task finalizar (TODO: loop para reconectar ou sair)
             }
             catch (Exception ex)
             {
@@ -868,8 +912,8 @@ namespace Blinktrade
             }
 
             #if DEBUG
-            //Console.WriteLine("Press any key to exit...");
-            //Console.ReadKey();
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey();
             #endif
         }
 
