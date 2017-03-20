@@ -232,12 +232,16 @@ namespace Blinktrade
             DispatchEvent(SystemEventType.ERROR, webSocketConn);
         }
 
-        public void OnClose(IWebSocketClientConnection _webSocketConn)
+        public void OnClose(IWebSocketClientConnection webSocketConn)
         {
-            Debug.Assert(!_webSocketConn.IsConnected);
-            _webSocketConn.IsLoggedOn = false;
+            Debug.Assert(!webSocketConn.IsConnected);
+            webSocketConn.IsLoggedOn = false;
             OnLogEvent(LogStatusType.ERROR, "WebSocket closed.");
-            DispatchEvent(SystemEventType.CLOSED, _webSocketConn);
+            DispatchEvent(SystemEventType.CLOSED, webSocketConn);
+			bool bRetVal = _connections.Remove(webSocketConn);
+			if (bRetVal) {
+				OnLogEvent (LogStatusType.INFO, "Removed connection : " + webSocketConn.ToString());
+			}
         }
 
         public void SendTestRequest(IWebSocketClientConnection connection)

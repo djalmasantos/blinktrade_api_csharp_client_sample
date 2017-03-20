@@ -64,6 +64,7 @@ namespace Blinktrade
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
         }
 
+		/*
 		private Object connLock = new Object();  
 		private IWebSocketClientConnection _connection = null; // might change to a list of connections in the future
 
@@ -105,14 +106,15 @@ namespace Blinktrade
 			Console.WriteLine("-------------------------------------------------------------------");
 		}
 
-
 		public void OnClose(IWebSocketClientConnection connection)
 		{
 			lock (connLock) 
 			{
 				_connection = null;
 			}
+
 		}
+		*/
 
 		private string MakeClOrdId()
         {

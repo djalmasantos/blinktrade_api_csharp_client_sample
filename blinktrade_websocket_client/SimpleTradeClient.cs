@@ -32,6 +32,7 @@ namespace Blinktrade
         private TradingStrategy _tradingStrategy;
 		private IWebSocketClientProtocolEngine _protocolEngine;
 		private ulong _soldAmount = 0;
+		private static volatile bool _userRequestExit = false;
 
 		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine)
         {
@@ -43,7 +44,17 @@ namespace Blinktrade
 			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
         }
 
-        public ulong UserId
+		public void Reset()
+		{
+			_balances.Clear();
+			_miniOMS = new MiniOMS();
+			_allOrderBooks.Clear();
+			_securityStatusEntries.Clear();
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
+
+		}
+
+		public ulong UserId
         {
             get
             {
@@ -138,7 +149,7 @@ namespace Blinktrade
 							// TODO: remove the temp dump bellow
 							this._vwapForTradingSym.PrintTradesAndTheVWAP(); 
 							// example how to notify the application to start
-							this._tradingStrategy.OnStart(webSocketConnection);
+							//this._tradingStrategy.OnStart(webSocketConnection);
 							
                         }
                         break;
@@ -370,7 +381,7 @@ namespace Blinktrade
                                     LogStatus(LogStatusType.INFO, "EOT - no more Order List pages to process.");
 									// notify application that all requestes where replied, 
 									// assuming the ORDER_LIST_REQUEST was the last in the StartInitialRequestsAfterLogon
-									_tradingStrategy.OnStart(webSocketConnection);
+									//_tradingStrategy.OnStart(webSocketConnection);
                                 }
                             }
                         }
@@ -449,7 +460,7 @@ namespace Blinktrade
 
 					case SystemEventType.CLOSED:
 						// notify the application the connection was broken
-						_tradingStrategy.OnClose(webSocketConnection);
+						//_tradingStrategy.OnClose(webSocketConnection);
 						break;
 					// Following events are ignored because inheritted behaviour is sufficient for this prototype
                     case SystemEventType.OPENED:
@@ -828,93 +839,87 @@ namespace Blinktrade
                 return;
             }
 
-
             string user = args[8];
             string password = args[9];
             string second_factor = args.Length == 11 ? args[10] : null;
 
-            try
-            {
-                // instantiate the tradeclient object to handle the trading stuff
-				TradingStrategy strategy = new TradingStrategy(maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
+			try 
+			{
+				// instantiate the tradeclient object to handle the trading stuff
+				TradingStrategy strategy = new TradingStrategy (maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
 
 				// instantiate the protocol engine object to handle the blinktrade messaging stuff
 				WebSocketClientProtocolEngine protocolEngine = new WebSocketClientProtocolEngine();
 
-				SimpleTradeClient tradeclient = new SimpleTradeClient(broker_id, symbol, strategy, protocolEngine);
+				SimpleTradeClient tradeclient = new SimpleTradeClient (broker_id, symbol, strategy, protocolEngine);
 
-                
+				// tradeclient must subscribe to receive the callback events from the protocol engine
+				protocolEngine.SystemEvent += tradeclient.OnBrokerNotification;
+				protocolEngine.LogStatusEvent += LogStatus;
+				strategy.LogStatusEvent += LogStatus;
 
-                // tradeclient must subscribe to receive the callback events from the protocol engine
-                protocolEngine.SystemEvent += tradeclient.OnBrokerNotification;
-                protocolEngine.LogStatusEvent += LogStatus;
-                strategy.LogStatusEvent += LogStatus;
 
-                // workaround (on windows working only in DEBUG) to trap the console application exit 
+				// workaround (on windows working only in DEBUG) to trap the console application exit 
 				// and dump the last state of the Market Data Order Book(s), MiniOMS and Security Status
 				#if  ( __MonoCS__ || DEBUG )
-                	System.AppDomain appDom = System.AppDomain.CurrentDomain;
-                	appDom.ProcessExit += new EventHandler(tradeclient.OnApplicationExit);
+					System.AppDomain appDom = System.AppDomain.CurrentDomain;
+					appDom.ProcessExit += new EventHandler(tradeclient.OnApplicationExit);
 					#if __MonoCS__
-					    Thread signal_thread = new Thread(UnixSignalTrap);
-					    signal_thread.Start();
+						Thread signal_thread = new Thread(UnixSignalTrap);
+						signal_thread.Start();
 					#else
 						var consoleHandler = new HandlerRoutine(OnConsoleCtrlCheck); // hold handler to not get GC'd
-	                	SetConsoleCtrlHandler(consoleHandler, true);
-	                #endif
+						SetConsoleCtrlHandler(consoleHandler, true);
+					#endif
 				#endif
 
-                LogStatus(LogStatusType.WARN, "Please Wait...");
+				// objects to encapsulate and provide user account credentials
+				UserAccountCredentials userAccount = new UserAccountCredentials (broker_id, user, password, second_factor);
 
-                // objects to encapsulate and provide user account credentials and device data
-                UserAccountCredentials userAccount = new UserAccountCredentials(broker_id, user, password, second_factor);
-                UserDevice userDevice = new UserDevice();
+				while (!_userRequestExit) 
+				{
+					try 
+					{
+						LogStatus (LogStatusType.WARN, "Please Wait...");
 
-                // start the connection task to handle the Websocket connectivity and initiate the whole process
-				#if __MonoCS__
-					Task task = WebSocketSharpClientConnection.Start(url, userAccount, userDevice, protocolEngine);
-				#else
-					Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine);
-				#endif
+						// gather and provide the user device data (local ip, external ip etc)
+						UserDevice userDevice = new UserDevice();
 
-				task.Wait(3000); // sincronizacao com o OnStart (TODO: criar mecanismo melhor)
+						// start the connection task to handle the Websocket connectivity and initiate the whole process
+						#if __MonoCS__
+						Task task = WebSocketSharpClientConnection.Start (url, userAccount, userDevice, protocolEngine);
+						#else
+						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine);
+						#endif
 
-				// a partir daqui se torna "seguro" acessar os dados do tradeclient e ate mesmo enviar ordens de compra e venda usando o connection
-				Console.WriteLine("Func = {0} : ThreadID={1}" , "Main", System.Threading.Thread.CurrentThread.ManagedThreadId);
-				var saldoBTC = tradeclient.GetBalance("BTC");
-				Console.WriteLine("BTC = {0}", saldoBTC);
+						task.Wait(); // aguardar até a Task finalizar
+						if (!_userRequestExit) 
+						{
+							tradeclient.Reset(); // must reset tradeclient to refresh whole data after new connection
+							LogStatus (LogStatusType.WARN, "Trying to reconnect in 5 seconds...");
+							Thread.Sleep(5000);
+						}
+					}
+					catch(System.Net.WebException ex) 
+					{
+						LogStatus (LogStatusType.ERROR, ex.Message + '\n' + ex.StackTrace);
+						Thread.Sleep(5000);
+						continue;
+					}
+				}
+			}
+			catch (Exception ex) 
+			{
+				LogStatus (LogStatusType.ERROR, ex.Message + '\n' + ex.StackTrace);
+				return;
+			}
 
-				var saldoFiat = tradeclient.GetBalance(tradeclient.GetTradingSymbol().Substring(3));
-				Console.WriteLine("FIAT = {0}", saldoFiat);
-
-				var bookBestBid = tradeclient.GetOrderBook(tradeclient.GetTradingSymbol()).BestBid.Price;
-				Console.WriteLine("BID = {0}", bookBestBid);
-
-				var bookBestOffer = tradeclient.GetOrderBook(tradeclient.GetTradingSymbol()).BestOffer.Price;
-				Console.WriteLine("OFFER = {0}", bookBestOffer);
-
-				var vwap = tradeclient.CalculateVWAP();
-				Console.WriteLine("VWAP = {0}", vwap);
-				// para acessar o connection
-
-				// poderia usar tradeclient e strategy.activeConnection para envio de ordens
-				Console.WriteLine("IsConnected : {0}", strategy.activeConnection.IsConnected);
-				Console.WriteLine("-------------------------------------------------------------------");
-
-
-
-
-				task.Wait(); // aguardar até a Task finalizar (TODO: loop para reconectar ou sair)
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error : " + ex.Message + '\n' + ex.StackTrace);
-            }
-
-            #if DEBUG
+            /*
+			#if DEBUG
             Console.WriteLine("Press any key to exit...");
             Console.ReadKey();
             #endif
+            */
         }
 
         public static void LogStatus(LogStatusType logtype, string message)
@@ -1008,32 +1013,32 @@ namespace Blinktrade
 			lock (_consoleLock)
 			//Console.WriteLine("CALLED OnConsoleCtrlCheck({0})", ctrlType);
             {
-                bool userRequestExit = false;
+                //bool userRequestExit = false; // TODO: deixar essa variavel static e publica ou nao?
                 switch (ctrlType)
                 {
                     case CtrlTypes.CTRL_C_EVENT:
-                        userRequestExit = true;
+                        _userRequestExit = true;
                         Console.WriteLine("CTRL+C received, shutting down");
                         break;
 
                     case CtrlTypes.CTRL_BREAK_EVENT:
-                        userRequestExit = true;
+						_userRequestExit = true;
                         Console.WriteLine("CTRL+BREAK received, shutting down");
                         break;
 
                     case CtrlTypes.CTRL_CLOSE_EVENT:
-                        userRequestExit = true;
+                        _userRequestExit = true;
                         Console.WriteLine("Program being closed, shutting down");
                         break;
 
                     case CtrlTypes.CTRL_LOGOFF_EVENT:
                     case CtrlTypes.CTRL_SHUTDOWN_EVENT:
-                        userRequestExit = true;
+						_userRequestExit = true;
                         Console.WriteLine("User is logging off!, shutting down");
                         break;
                 }
 
-				if (userRequestExit) {
+				if (_userRequestExit) {
                     Environment.Exit (0);
 				}
             }
