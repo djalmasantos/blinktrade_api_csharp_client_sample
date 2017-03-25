@@ -28,7 +28,7 @@ namespace Blinktrade
 			}
 		}
 
-		public static async Task Start(
+		public static async Task/*<int>*/ Start(
 			string serverUri, 
 			UserAccountCredentials account, 
 			UserDevice device, 
@@ -85,6 +85,7 @@ namespace Blinktrade
 				if (connectionInstance._webSocket != null)
 					((IDisposable) connectionInstance._webSocket).Dispose();
 			}
+			//return 0;
 		}
 
 		public void SendMessage(string message)
