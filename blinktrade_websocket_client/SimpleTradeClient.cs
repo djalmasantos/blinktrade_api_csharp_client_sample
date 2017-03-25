@@ -17,18 +17,18 @@ using System.Runtime.InteropServices;
 
 namespace Blinktrade
 {
-	//class 
 	class SimpleTradeClient : ITradeClientService
     {
         private int _brokerId;
         private string _tradingSymbol;
         private ulong _myUserID = 0;
         private Dictionary<string, ulong> _balances = new Dictionary<string,ulong>();
-        private Dictionary<string, OrderBook> _allOrderBooks = new Dictionary<string, OrderBook>();
-		private SortedDictionary<string, SecurityStatus> _securityStatusEntries = new SortedDictionary<string, SecurityStatus>();
-        private MiniOMS _miniOMS = new MiniOMS();
-		ShortPeriodTickBasedVWAP _vwapForTradingSym;
-		
+		private MiniOMS _miniOMS = new MiniOMS();
+		// TODO: MarketDataHelper class
+		protected Dictionary<string, OrderBook> _allOrderBooks = new Dictionary<string, OrderBook>();
+		protected SortedDictionary<string, SecurityStatus> _securityStatusEntries = new SortedDictionary<string, SecurityStatus>();
+		ShortPeriodTickBasedVWAP _vwapForTradingSym; // TODO: use a dictionary here too
+
         private TradingStrategy _tradingStrategy;
 		private IWebSocketClientProtocolEngine _protocolEngine;
 		private ulong _soldAmount = 0;
@@ -99,7 +99,7 @@ namespace Blinktrade
 
 		public ulong CalculateVWAP(/*string symbol*/)
 		{
-			return this._vwapForTradingSym.calculateVWAP ();
+			return this._vwapForTradingSym.calculateVWAP();
 		}
 
 		public ulong GetLastPrice(/*string symbol*/)
@@ -964,7 +964,6 @@ namespace Blinktrade
 
         private void OnApplicationExit(object sender, EventArgs e)
         {
-			//Console.WriteLine ("OnApplicationExit");
 			// workaround to cancel all orders when application is dying (TODO: extend for more connections in the future)
 			this._tradingStrategy.Enabled = false; // disable strategy
 			Thread.Sleep(100);
@@ -1019,10 +1018,9 @@ namespace Blinktrade
         private static bool OnConsoleCtrlCheck(CtrlTypes ctrlType)
         {
 			lock (_consoleLock)
-			//Console.WriteLine("CALLED OnConsoleCtrlCheck({0})", ctrlType);
             {
-                //bool userRequestExit = false; // TODO: deixar essa variavel static e publica ou nao?
-                switch (ctrlType)
+				Debug.Assert(!_userRequestExit);
+				switch (ctrlType)
                 {
                     case CtrlTypes.CTRL_C_EVENT:
                         _userRequestExit = true;
