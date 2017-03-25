@@ -887,11 +887,10 @@ namespace Blinktrade
 
 						// start the connection task to handle the Websocket connectivity and initiate the whole process
 						#if __MonoCS__
-						Task/*<int>*/ task = WebSocketSharpClientConnection.Start (url, userAccount, userDevice, protocolEngine);
+						Task/*<int>*/ task = WebSocketSharpClientConnection.Start(url, userAccount, userDevice, protocolEngine);
 						#else
 						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine);
 						#endif
-
 					
 						/*
 						Task<int>[] tasks = new Task<int>[2];
@@ -902,20 +901,17 @@ namespace Blinktrade
 						*/
 
 						task.Wait(); // aguardar até a Task finalizar
-						//task.Result; // criar um enum para identicar o tipo de task que terminou 
 						if (!_userRequestExit) 
 						{
 							tradeclient.ResetData(); // must reset tradeclient to refresh whole data after new connection
 							LogStatus (LogStatusType.WARN, "Trying to reconnect in 5 seconds...");
-							Thread.Sleep(5000);
-							//Task.Delay(TimeSpan.FromSeconds(5)).Wait();
+							Task.Delay(TimeSpan.FromSeconds(5)).Wait();
 						}
 					}
 					catch(System.Net.WebException ex) 
 					{
 						LogStatus (LogStatusType.ERROR, ex.Message + '\n' + ex.StackTrace);
-						Thread.Sleep(5000);
-						//Task.Delay(TimeSpan.FromSeconds(5)).Wait();
+						Task.Delay(TimeSpan.FromSeconds(5)).Wait();
 						continue;
 					}
 				}
