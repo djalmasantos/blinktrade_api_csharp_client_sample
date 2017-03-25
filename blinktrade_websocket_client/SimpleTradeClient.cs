@@ -44,7 +44,7 @@ namespace Blinktrade
 			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
         }
 
-		public void Reset()
+		public void ResetData()
 		{
 			_balances.Clear();
 			_miniOMS = new MiniOMS();
@@ -895,7 +895,7 @@ namespace Blinktrade
 						task.Wait(); // aguardar até a Task finalizar
 						if (!_userRequestExit) 
 						{
-							tradeclient.Reset(); // must reset tradeclient to refresh whole data after new connection
+							tradeclient.ResetData(); // must reset tradeclient to refresh whole data after new connection
 							LogStatus (LogStatusType.WARN, "Trying to reconnect in 5 seconds...");
 							Thread.Sleep(5000);
 						}
