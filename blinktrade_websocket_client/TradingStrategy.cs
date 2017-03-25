@@ -144,7 +144,7 @@ namespace Blinktrade
 
 		}
 
-		public void runStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
+		/*abstract*/ public void runStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
         {
             // Run the strategy to try to have an order on at least one side of the book according to fixed price range 
 			// but never executing as a taker
