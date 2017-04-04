@@ -64,6 +64,14 @@ namespace Blinktrade
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
         }
 
+		public void Reset()
+		{
+			_strategySellOrderClorid = null;
+			_strategyBuyOrderClorid = null;
+			_cloridSeqNum = 0;
+			_startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
+		}
+
 		/*
 		private Object connLock = new Object();  
 		private IWebSocketClientConnection _connection = null; // might change to a list of connections in the future
@@ -231,9 +239,9 @@ namespace Blinktrade
 					return;
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				ulong floor = (ulong)(bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
+				//ulong floor = (ulong)(bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
 				// check the selling FLOOR
-				//ulong floor = (ulong)( 3000 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
+				ulong floor = (ulong)( 3500 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
 				if ( _sellTargetPrice < floor ) {
 					_sellTargetPrice = floor;
 				}
