@@ -11,7 +11,7 @@ namespace Blinktrade
         private string _strategyBuyOrderClorid = null;
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minTradeSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
-		private const ulong _maxAmountToSell = (ulong)(1 * 1e8); // TODO: make it an optional parameter
+		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
 		private ulong _maxTradeSize = 0;
 		//private ulong _origMaxTradeSize = 0;
 		private ulong _buyTargetPrice = 0;
@@ -229,19 +229,21 @@ namespace Blinktrade
 				// get the dollar price
 				SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus ("UOL", "USDBRL"); // use USDBRT for the turism quote
 				if (usd_official_quote == null || usd_official_quote.BestAsk == 0) {
-					LogStatus (LogStatusType.ERROR, "UOL:USDBRL not available");
-					return;
+					LogStatus (LogStatusType.WARN, "UOL:USDBRL not available");
 				}
 				// get the BTC Price in dollar
 				SecurityStatus bitfinex_btcusd_quote = _tradeclient.GetSecurityStatus ("BITFINEX", "BTCUSD");
 				if (bitfinex_btcusd_quote == null || bitfinex_btcusd_quote.BestAsk == 0) {
-					LogStatus (LogStatusType.ERROR, "BITFINEX:BTCUSD not available");
-					return;
+					LogStatus (LogStatusType.WARN, "BITFINEX:BTCUSD not available");
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				//ulong floor = (ulong)(bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
+				ulong floor = (ulong)(bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
+
+				if (floor == 0) {
+					floor = (ulong)( 3500 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
+				}
+
 				// check the selling FLOOR
-				ulong floor = (ulong)( 3500 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
 				if ( _sellTargetPrice < floor ) {
 					_sellTargetPrice = floor;
 				}
