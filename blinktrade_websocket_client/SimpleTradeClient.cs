@@ -41,7 +41,7 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 60);
         }
 
 		public void ResetData()
@@ -50,7 +50,7 @@ namespace Blinktrade
 			_miniOMS = new MiniOMS();
 			_allOrderBooks.Clear();
 			_securityStatusEntries.Clear();
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 60);
 			_tradingStrategy.Reset();
 		}
 
@@ -556,7 +556,7 @@ namespace Blinktrade
             orders_list_request["OrdersReqID"] = connection.NextOutgoingSeqNum();
             orders_list_request["Page"] = page;
             orders_list_request["PageSize"] = 20;
-			orders_list_request["Filter"] = new JArray("has_leaves_qty eq 1" /*"has_cum_qty eq 1"*/);
+			orders_list_request["Filter"] = new JArray(/*"has_leaves_qty eq 1"*/ "has_cum_qty eq 1");
             connection.SendMessage(orders_list_request.ToString());
         }
 

@@ -232,16 +232,18 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "UOL:USDBRL not available");
 				}
 				// get the BTC Price in dollar
-				SecurityStatus bitfinex_btcusd_quote = _tradeclient.GetSecurityStatus ("BITFINEX", "BTCUSD");
+				SecurityStatus bitfinex_btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
 				if (bitfinex_btcusd_quote == null || bitfinex_btcusd_quote.BestAsk == 0) {
-					LogStatus (LogStatusType.WARN, "BITFINEX:BTCUSD not available");
+					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				ulong floor = (ulong)(bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
+				//ulong floor = (ulong)(1.01 * bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
 
-				if (floor == 0) {
-					floor = (ulong)( 3500 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
-				}
+				//if (floor == 0) {
+				ulong floor = (ulong)(8900 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
+				//}
+
+				//floor = (ulong)(5400 * 1e8);
 
 				// check the selling FLOOR
 				if ( _sellTargetPrice < floor ) {
