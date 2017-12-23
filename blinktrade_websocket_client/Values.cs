@@ -7,7 +7,7 @@ namespace Blinktrade
     {
         public const char MARKET = '1';
         public const char LIMIT = '2';
-        public const char STOP_LOSS = '3';
+        public const char STOP_MARKET = '3';
         public const char STOP_LIMIT = '4';
     }
     

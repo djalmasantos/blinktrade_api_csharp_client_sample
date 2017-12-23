@@ -79,6 +79,7 @@ namespace Blinktrade
             ulong Volume { get; }
             string OrderDate { get; }
             char TimeInForce { get; }
+			ulong StopPx { get; }
         }
 
         public class Order : IOrder
@@ -218,6 +219,14 @@ namespace Blinktrade
                 get { return _timeInForce; }
                 set { _timeInForce = value; }
             }
+
+			private ulong _stopPx = 0;
+
+			public ulong StopPx
+			{
+				get { return _stopPx; }
+				set { _stopPx = value; }
+			}
         }
     }
 }

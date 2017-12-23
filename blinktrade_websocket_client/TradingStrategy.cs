@@ -24,9 +24,13 @@ namespace Blinktrade
 		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
-		public enum PriceType { FIXED, PEGGED }
+		public enum PriceType { FIXED, PEGGED, STOP }
 		private PriceType _priceType;
 		private ulong _pegOffsetValue = 0;
+
+		// stop exclusive attributes
+		private ulong _stop_price = 0;
+
         
 		public event LogStatusDelegate LogStatusEvent;
 
@@ -50,7 +54,6 @@ namespace Blinktrade
 		public TradingStrategy(ulong max_trade_size, ulong buy_target_price, ulong sell_target_price, char side, PriceType priceType)
         {
             _maxTradeSize = max_trade_size;
-			//_origMaxTradeSize = max_trade_size;
             _buyTargetPrice = buy_target_price;
             _sellTargetPrice = sell_target_price;
             _strategySide = side;
@@ -63,6 +66,17 @@ namespace Blinktrade
 					
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
         }
+
+		public TradingStrategy(char side, ulong order_size, ulong stoppx, ulong limit_price = 0)
+		{
+			_priceType = PriceType.STOP;
+			_maxTradeSize = order_size;
+			_stop_price = stoppx;
+			_buyTargetPrice  = (side == OrderSide.BUY  ? limit_price : 0);
+			_sellTargetPrice = (side == OrderSide.SELL ? limit_price : 0);
+			_strategySide = side;
+			_startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
+		}
 
 		public void Reset()
 		{
@@ -209,7 +223,7 @@ namespace Blinktrade
 				// gather the magic element of the midprice (i.e. price to buy 10 BTC)
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(10 * 1e8), // TODO: make it a parameter
+														(ulong)(2 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 
@@ -219,6 +233,7 @@ namespace Blinktrade
 				ulong vwap = _tradeclient.CalculateVWAP();
 				ulong lastPx = _tradeclient.GetLastPrice();
 				ulong marketPrice = vwap > lastPx ? vwap : lastPx;
+				marketPrice = vwap;
 				// calculate the mid price					
 				//ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
 
@@ -227,28 +242,43 @@ namespace Blinktrade
 				_sellTargetPrice = midprice + _pegOffsetValue;
 
 				// get the dollar price
-				SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus ("UOL", "USDBRL"); // use USDBRT for the turism quote
+				SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus ("UOL", "USDBRT"); // use USDBRT for the turism quote
 				if (usd_official_quote == null || usd_official_quote.BestAsk == 0) {
-					LogStatus (LogStatusType.WARN, "UOL:USDBRL not available");
+					LogStatus (LogStatusType.WARN, "UOL:USDBRT not available");
 				}
 				// get the BTC Price in dollar
-				SecurityStatus bitfinex_btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
-				if (bitfinex_btcusd_quote == null || bitfinex_btcusd_quote.BestAsk == 0) {
+				SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
+				if (btcusd_quote == null || btcusd_quote.BestAsk == 0) {
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				//ulong floor = (ulong)(1.01 * bitfinex_btcusd_quote.BestAsk * (float)(usd_official_quote.BestAsk / 1e8));
-
-				//if (floor == 0) {
-				ulong floor = (ulong)(8900 * 1e8); // TODO: make it an optional parameter or pegged to the dolar bitcoin
-				//}
-
-				//floor = (ulong)(5400 * 1e8);
+				//ulong floor = (ulong)(1 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+				ulong floor = (ulong)(59000*1e8);
+				//ulong floor = 0;
 
 				// check the selling FLOOR
 				if ( _sellTargetPrice < floor ) {
 					_sellTargetPrice = floor;
 				}
+			}
+
+			// another workaround for sending a single stop order and disable the strategy
+			if (_priceType == PriceType.STOP) {
+				if (_strategySide == OrderSide.BUY) {
+					char ordType = (_buyTargetPrice == 0 ? OrdType.STOP_MARKET : OrdType.STOP_LIMIT);
+					ulong ref_price = (_buyTargetPrice > _stop_price ? _buyTargetPrice : _stop_price);
+					ulong qty = calculateOrderQty (symbol, _strategySide, ref_price);
+					sendOrder(webSocketConnection, symbol, OrderSide.BUY, qty, _buyTargetPrice, ordType, _stop_price, default(char));
+				}
+
+				if (_strategySide == OrderSide.SELL) {
+					char ordType = (_sellTargetPrice == 0 ? OrdType.STOP_MARKET : OrdType.STOP_LIMIT);
+					ulong qty = calculateOrderQty (symbol, _strategySide);
+					sendOrder(webSocketConnection, symbol, OrderSide.SELL, qty, _sellTargetPrice, ordType, _stop_price, default(char));
+				}
+				// disable strategy after sending the stop order...
+				this._enabled = false;
+				return;
 			}
 
 			// run the strategy
@@ -465,7 +495,7 @@ namespace Blinktrade
             sendOrder(webSocketConnection, symbol, side, qty, price);
         }
         
-        private void sendOrder(IWebSocketClientConnection webSocketConnection, string symbol, char side, ulong qty, ulong price)
+		private void sendOrder(IWebSocketClientConnection webSocketConnection, string symbol, char side, ulong qty, ulong price, char orderType = OrdType.LIMIT, ulong stop_price = 0, char exec_inst = ExecInst.PARTICIPATE_DONT_INITIATE)
         {
             Debug.Assert(side == OrderSide.BUY || side == OrderSide.SELL);
 
@@ -483,8 +513,9 @@ namespace Blinktrade
                                         side,
                                         _tradeclient.BrokerId,
                                         MakeClOrdId(),
-                                        OrdType.LIMIT,
-                                        ExecInst.PARTICIPATE_DONT_INITIATE
+										orderType,
+										stop_price,
+                                        exec_inst
 				);
 		
 				if (side == OrderSide.BUY)

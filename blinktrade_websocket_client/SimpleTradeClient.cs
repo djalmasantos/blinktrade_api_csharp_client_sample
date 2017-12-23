@@ -41,7 +41,7 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 60);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
         }
 
 		public void ResetData()
@@ -50,7 +50,7 @@ namespace Blinktrade
 			_miniOMS = new MiniOMS();
 			_allOrderBooks.Clear();
 			_securityStatusEntries.Clear();
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 60);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
 			_tradingStrategy.Reset();
 		}
 
@@ -570,6 +570,7 @@ namespace Blinktrade
 								int broker_id, 
 								string client_order_id, 
 								char order_type = '2', 
+								ulong stop_price = 0,
 								char execInst = default(char))
         {
             // add pending new order to the OMS
@@ -577,7 +578,8 @@ namespace Blinktrade
             orderToSend.Symbol = symbol;
             orderToSend.OrderQty = qty;
             orderToSend.Price = price;
-            orderToSend.Side = side;
+			orderToSend.StopPx = stop_price;
+			orderToSend.Side = side;
             orderToSend.ClOrdID = client_order_id;
             orderToSend.OrdType = order_type;
             orderToSend.OrdStatus = 'A'; // PENDING_NEW according to FIX std
@@ -606,10 +608,12 @@ namespace Blinktrade
             new_order_single["Side"] = orderToSend.Side.ToString();
             new_order_single["OrdType"] = orderToSend.OrdType.ToString();
             new_order_single["Price"] = orderToSend.Price;
+			if (order_type == '3' || order_type == '4') {
+				new_order_single["StopPx"] = stop_price;
+			}
             new_order_single["OrderQty"] = orderToSend.OrderQty;
             new_order_single["BrokerID"] = broker_id;
-            if (execInst != default(char))
-            {
+            if (execInst != default(char)) {
                 new_order_single["ExecInst"] = execInst.ToString();
             }
             new_order_single["FingerPrint"] = connection.Device.FingerPrint;
@@ -710,8 +714,8 @@ namespace Blinktrade
             Console.WriteLine("Blinktrade client websocket C# sample");
             Console.WriteLine("\nusage:\n\t" + 
 				program_name + 
-				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|PEGGED> <MAX-BTC-TRADE-SIZE> " +
-				" <BUY-TARGET-PRICE> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET> "+
+				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP> <MAX-BTC-TRADE-SIZE> " +
+				" <BUY-TARGET-PRICE-OR-STOP> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT> "+
 				" <USERNAME> <PASSWORD> [<SECOND-FACTOR>]");
             Console.WriteLine("\nexample:\n\t" + 
 				program_name + 
@@ -769,11 +773,18 @@ namespace Blinktrade
 					break;
 				case "PEGGED":
 				case "FLOAT":
-				if ( side == OrderSide.SELL )
+					if ( side == OrderSide.SELL )
 						priceType = TradingStrategy.PriceType.PEGGED;
 					else
 						throw new ArgumentException("PEGGED is currently supported only for SELL");
 					break;
+				case "STOP":
+					priceType = TradingStrategy.PriceType.STOP;	
+					if (side == default(char)) {
+						throw new ArgumentException("STOP must define BUY or SELL");
+					}
+					break;
+					
 				default:
 					show_usage(Process.GetCurrentProcess().ProcessName);
 					return;
@@ -826,11 +837,14 @@ namespace Blinktrade
                 if ((side == OrderSide.BUY || side == default(char)) && buyTargetPrice == 0)
                     throw new ArgumentException("Invalid BUY Target Price");
 
-                if ((side == OrderSide.SELL || side == default(char)) && sellTargetPrice == 0)
-                    throw new ArgumentException("Invalid SELL Target Price");
+				if (priceType != TradingStrategy.PriceType.STOP) 
+				{
+					if ((side == OrderSide.SELL || side == default(char)) && sellTargetPrice == 0)
+	                    throw new ArgumentException("Invalid SELL Target Price");
 
-                if (side == default(char) && buyTargetPrice >= sellTargetPrice)
-                    throw new ArgumentException("Invalid SELL and BUY Price RANGE");
+					if (side == default(char) && buyTargetPrice >= sellTargetPrice)
+	                    throw new ArgumentException("Invalid SELL and BUY Price RANGE");
+				}
             }
             catch (Exception e)
             {
@@ -846,7 +860,16 @@ namespace Blinktrade
 			try 
 			{
 				// instantiate the tradeclient object to handle the trading stuff
-				TradingStrategy strategy = new TradingStrategy (maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
+				TradingStrategy strategy = null;
+				if (priceType == TradingStrategy.PriceType.STOP) {
+					// ** this is a workaround
+					ulong stoppx = buyTargetPrice;
+					ulong limit = sellTargetPrice;
+					// validation of stoppx and limit should happen at server side
+					strategy = new TradingStrategy ( side, maxTradeSize, stoppx, limit);
+				}
+				else
+					strategy = new TradingStrategy (maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
 
 				// instantiate the protocol engine object to handle the blinktrade messaging stuff
 				WebSocketClientProtocolEngine protocolEngine = new WebSocketClientProtocolEngine();
@@ -938,11 +961,11 @@ namespace Blinktrade
                 {
                     case LogStatusType.MSG_IN:
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.Write("[<---] ");
+						Console.Write("[<---][{0}]", Util.ConvertToUnixTimestamp(DateTime.Now));
                         break;
                     case LogStatusType.MSG_OUT:
                         Console.ForegroundColor = ConsoleColor.Gray;
-                        Console.Write("[--->] ");
+						Console.Write("[--->][{0}]", Util.ConvertToUnixTimestamp(DateTime.Now));
                         break;
                     case LogStatusType.WARN:
                         Console.ForegroundColor = ConsoleColor.Yellow;

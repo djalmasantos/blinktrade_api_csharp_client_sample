@@ -36,7 +36,8 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Externalconsole>true</Externalconsole>
-    <Commandlineparameters>"wss://api.testnet.blinktrade.com/trade/" 5 BTCUSD BOTH DEFAULT 0.1 10 5000 djalma abc12345</Commandlineparameters>
+    <Commandlineparameters>wss://bitcambio_api.blinktrade.com/trade/ 11 BTCBRL SELL STOP 0.03 56350 56100 0RQyddMo7dDzUdwDPTclmcbm8ax5JQTOu196UfPGIIA LrrLT07B1o4q2ar</Commandlineparameters>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
@@ -46,7 +47,6 @@
     <WarningLevel>4</WarningLevel>
     <DebugSymbols>true</DebugSymbols>
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-    <DebugType>pdbonly</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json">
