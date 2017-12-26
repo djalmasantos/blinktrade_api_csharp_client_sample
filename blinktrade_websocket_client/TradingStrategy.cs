@@ -223,7 +223,7 @@ namespace Blinktrade
 				// gather the magic element of the midprice (i.e. price to buy 10 BTC)
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(2 * 1e8), // TODO: make it a parameter
+														(ulong)(2.5 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 
@@ -252,8 +252,8 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				//ulong floor = (ulong)(1 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-				ulong floor = (ulong)(59000*1e8);
+				ulong floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+				//ulong floor = (ulong)(59000*1e8);
 				//ulong floor = 0;
 
 				// check the selling FLOOR
@@ -307,9 +307,22 @@ namespace Blinktrade
                 {
 					// buy @ 1 cent above the best price (TODO: parameter for price increment)
                     ulong buyPrice = bestBid.Price + (ulong)(0.01 * 1e8);
-                    if (buyPrice <= this._buyTargetPrice)
+                    if (buyPrice <= this._buyTargetPrice) 
                     {
-                        replaceOrder(webSocketConnection, symbol, OrderSide.BUY, buyPrice);
+						OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+						if (buyPrice < bestOffer.Price) 
+						{
+							replaceOrder (webSocketConnection, symbol, OrderSide.BUY, buyPrice);
+						}
+						else 
+						{
+							// avoid being a taker or receiving a reject when using ExecInst=6 but stay in the book with max price
+							ulong max_buy_price = bestOffer.Price - (ulong)(0.01 * 1e8);
+							var own_order = _tradeclient.miniOMS.GetOrderByClOrdID( _strategyBuyOrderClorid );
+							ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, max_buy_price);
+							if (own_order == null || own_order.Price != max_buy_price || availableQty > own_order.OrderQty)
+								replaceOrder(webSocketConnection, symbol, OrderSide.BUY, max_buy_price);
+						}
                     }
                     else
                     {
@@ -387,7 +400,19 @@ namespace Blinktrade
                     ulong sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
                     if (sellPrice >= _sellTargetPrice)
                     {
-                        replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+						OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
+						if (sellPrice > bestBid.Price) {
+							replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+						}
+						else 
+						{
+							// avoid being a taker or receiving a reject when using ExecInst=6 but stay in the book with max price
+							ulong max_sell_price = bestBid.Price + (ulong)(0.01 * 1e8);
+							var own_order = _tradeclient.miniOMS.GetOrderByClOrdID( _strategySellOrderClorid );
+							ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+							if (own_order == null || own_order.Price != max_sell_price || availableQty > own_order.OrderQty)
+								replaceOrder(webSocketConnection, symbol, OrderSide.SELL, max_sell_price);
+						}
                     }
                     else
                     { 
