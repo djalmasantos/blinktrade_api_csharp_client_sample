@@ -13,7 +13,7 @@ namespace Blinktrade
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
 		private ulong _maxOrderSize = 0;
-		//private ulong _origMaxTradeSize = 0;
+
 		private ulong _buyTargetPrice = 0;
         private ulong _sellTargetPrice = 0;
 
@@ -485,7 +485,13 @@ namespace Blinktrade
             string existingClorId = side == OrderSide.BUY ? this._strategyBuyOrderClorid : this._strategySellOrderClorid;
 
             var orderToReplace = _tradeclient.miniOMS.GetOrderByClOrdID( existingClorId );
-            // cancel the previous sent order since it is not possible to modify the order
+            
+			if (qty == 0)
+			{
+				qty = calculateOrderQty(symbol, side, price);
+			}
+
+			// cancel the previous sent order since it is not possible to modify the order
             if (orderToReplace != null)
             {
                 switch (orderToReplace.OrdStatus)
@@ -501,22 +507,21 @@ namespace Blinktrade
                                     side)
                             );
                         return; // wait the confirmation
-                    case OrdStatus.NEW:
-                    case OrdStatus.PARTIALLY_FILLED:
-                        // cancel the order to replace it
-                        _tradeclient.CancelOrderByClOrdID(webSocketConnection, orderToReplace.ClOrdID);
-                        break;
-                    default:
-                        break;
+					case OrdStatus.NEW:
+					case OrdStatus.PARTIALLY_FILLED:
+	                    // cancel the order to replace it
+						if (qty < _minOrderSize) {
+							return; // order is too small to replace
+						}
+						_tradeclient.CancelOrderByClOrdID (webSocketConnection, orderToReplace.ClOrdID);
+						break;
+
+	                default:
+	                break;
                 }
             }
-
-            if (qty == 0)
-            {
-                qty = calculateOrderQty(symbol, side, price);
-            }
-
-            // send a new buy order
+            
+			// send a new buy order
             sendOrder(webSocketConnection, symbol, side, qty, price);
         }
         
