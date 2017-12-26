@@ -10,9 +10,9 @@ namespace Blinktrade
         private string _strategySellOrderClorid = null;
         private string _strategyBuyOrderClorid = null;
         private char _strategySide = default(char); // default: run both SELL AND BUY 
-        private const ulong _minTradeSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
+        private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
-		private ulong _maxTradeSize = 0;
+		private ulong _maxOrderSize = 0;
 		//private ulong _origMaxTradeSize = 0;
 		private ulong _buyTargetPrice = 0;
         private ulong _sellTargetPrice = 0;
@@ -46,14 +46,14 @@ namespace Blinktrade
 			set { _enabled = value; }
 		}
 
-		public ulong MinTradeSize 
+		public ulong MinOrderSize 
 		{
-			get { return _minTradeSize; }
+			get { return _minOrderSize; }
 		}
 
 		public TradingStrategy(ulong max_trade_size, ulong buy_target_price, ulong sell_target_price, char side, PriceType priceType)
         {
-            _maxTradeSize = max_trade_size;
+            _maxOrderSize = max_trade_size;
             _buyTargetPrice = buy_target_price;
             _sellTargetPrice = sell_target_price;
             _strategySide = side;
@@ -70,7 +70,7 @@ namespace Blinktrade
 		public TradingStrategy(char side, ulong order_size, ulong stoppx, ulong limit_price = 0)
 		{
 			_priceType = PriceType.STOP;
-			_maxTradeSize = order_size;
+			_maxOrderSize = order_size;
 			_stop_price = stoppx;
 			_buyTargetPrice  = (side == OrderSide.BUY  ? limit_price : 0);
 			_sellTargetPrice = (side == OrderSide.SELL ? limit_price : 0);
@@ -200,8 +200,8 @@ namespace Blinktrade
 				if (theSoldAmount < _maxAmountToSell) 
 				{
 					ulong uAllowedAmountToSell = _maxAmountToSell - theSoldAmount;
-					_maxTradeSize = _maxTradeSize < uAllowedAmountToSell ? _maxTradeSize : uAllowedAmountToSell;
-					_maxTradeSize = _maxTradeSize > _minTradeSize ? _maxTradeSize : _minTradeSize;
+					_maxOrderSize = _maxOrderSize < uAllowedAmountToSell ? _maxOrderSize : uAllowedAmountToSell;
+					_maxOrderSize = _maxOrderSize > _minOrderSize ? _maxOrderSize : _minOrderSize;
 				} 
 				else 
 				{
@@ -282,7 +282,7 @@ namespace Blinktrade
 			}
 
 			// run the strategy
-			if (_maxTradeSize > 0)
+			if (_maxOrderSize > 0)
             {
                 webSocketConnection.EnableTestRequest = false;
                 if (_strategySide == OrderSide.BUY || _strategySide == default(char)) // buy or both
@@ -527,7 +527,7 @@ namespace Blinktrade
 			if (side != OrderSide.BUY && side != OrderSide.SELL)
 				throw new ArgumentException();
 
-			if (qty >= _minTradeSize)
+			if (qty >= _minOrderSize)
             {
                 // send order (Participate don't initiate - aka book or cancel) and keep track of the ClOrdId
                 string clorid = _tradeclient.SendOrder(
@@ -564,14 +564,14 @@ namespace Blinktrade
                         string fiatCurrency = symbol.Substring(3);
                         ulong fiatBalance = _tradeclient.GetBalance(fiatCurrency);
                         ulong max_allowed_qty = (ulong)((double)fiatBalance / price * 1e8);
-                        result = _maxTradeSize < max_allowed_qty ? _maxTradeSize : max_allowed_qty;
+                        result = _maxOrderSize < max_allowed_qty ? _maxOrderSize : max_allowed_qty;
                     }
                     break;
                 case OrderSide.SELL:
                     string cryptoCurrency = symbol.Substring(0, 3);
                     Debug.Assert(cryptoCurrency == "BTC");
                     ulong crytoBalance = _tradeclient.GetBalance(cryptoCurrency);
-                    result = _maxTradeSize < crytoBalance ? _maxTradeSize : crytoBalance;
+                    result = _maxOrderSize < crytoBalance ? _maxOrderSize : crytoBalance;
                     break;
                 default:
                     break;
