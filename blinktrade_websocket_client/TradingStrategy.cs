@@ -214,16 +214,17 @@ namespace Blinktrade
 				OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
 
 				// instead of bestAsk let's use the Price reached if one decides to buy 1 BTC
+				/*
 				ulong maxPriceToBuy1BTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 					OrderBook.OrdSide.SELL,
 					(ulong)(1 * 1e8), // TODO: make it a parameter
 					_tradeclient.UserId);
-				
+				*/
 
 				// gather the magic element of the midprice (i.e. price to buy 10 BTC)
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(2.5 * 1e8), // TODO: make it a parameter
+														(ulong)(1 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 
@@ -237,7 +238,8 @@ namespace Blinktrade
 				// calculate the mid price					
 				//ulong midprice = (ulong)((status.BestAsk + status.BestBid + status.LastPx + maxPriceToBuyXBTC) / 4);
 
-				ulong midprice = (ulong)((orderBook.BestBid.Price + maxPriceToBuy1BTC + maxPriceToBuyXBTC + marketPrice) / 4);
+				//ulong midprice = (ulong)((orderBook.BestBid.Price + maxPriceToBuy1BTC + maxPriceToBuyXBTC + marketPrice) / 4);
+				ulong midprice = (ulong)((orderBook.BestBid.Price + maxPriceToBuyXBTC + marketPrice) / 3);
 				Debug.Assert (_pegOffsetValue > 0);
 				_sellTargetPrice = midprice + _pegOffsetValue;
 
@@ -252,8 +254,8 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				ulong floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-				//ulong floor = (ulong)(59000*1e8);
+				//ulong floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+				ulong floor = (ulong)(48601*1e8);
 				//ulong floor = 0;
 
 				// check the selling FLOOR
