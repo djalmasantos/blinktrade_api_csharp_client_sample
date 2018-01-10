@@ -28,6 +28,7 @@ After building the solution in Visual Studio or MonoDevelop, run blinktrade_webs
 Yes, <a href="https://testnet.blinktrade.com/">blinktrade tesnet exchange</a>.
 
 <b>List of exchanges running the blinktrade platform</b><br>
+- [bitcambio](https://bitcambio.com.br/)
 - [chilebit](https://chilebit.net)
 - [foxbit](https://foxbit.com.br)
 - [VBTC](https://vbtc.vn)
