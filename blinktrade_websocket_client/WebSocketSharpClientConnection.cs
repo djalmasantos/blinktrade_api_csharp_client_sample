@@ -7,11 +7,11 @@ using WebSocketSharp;
 
 namespace Blinktrade
 {
-	public class WebSocketSharpClientConnection : WebSocketClientBase, IWebSocketClientConnection 
+	public class WebSocketClientConnection : WebSocketClientBase, IWebSocketClientConnection 
 	{
 		private WebSocket _webSocket = null;
 
-		WebSocketSharpClientConnection(
+		WebSocketClientConnection(
 			UserAccountCredentials account, 
 			UserDevice device, 
 			WebSocketClientProtocolEngine protocolEngine
@@ -35,7 +35,7 @@ namespace Blinktrade
 			WebSocketClientProtocolEngine protocolEngine)
 		{
 
-			WebSocketSharpClientConnection connectionInstance = new WebSocketSharpClientConnection(account, device, protocolEngine);
+			WebSocketClientConnection connectionInstance = new WebSocketClientConnection(account, device, protocolEngine);
 			try
 			{
 				WebSocket ws  = new WebSocket(serverUri);

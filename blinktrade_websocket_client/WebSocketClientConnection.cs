@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !__MonoCS__
+using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
@@ -145,3 +146,4 @@ namespace Blinktrade
         }
     }
 }
+#endif

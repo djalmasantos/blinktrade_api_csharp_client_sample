@@ -41,7 +41,7 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 720);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
         }
 
 		public void ResetData()
@@ -50,7 +50,7 @@ namespace Blinktrade
 			_miniOMS = new MiniOMS();
 			_allOrderBooks.Clear();
 			_securityStatusEntries.Clear();
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 720);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
 			_tradingStrategy.Reset();
 		}
 
@@ -286,18 +286,6 @@ namespace Blinktrade
 										String.Format("{0} {1}", msg["MDEntryDate"].Value<string>(),msg["MDEntryTime"].Value<string>())
 									)
 							);
-							/*
-							LogStatus(
-								LogStatusType.INFO,
-								String.Format(
-									"New Trade : VWAP = {0} | LastPx = {1} - {2} | Size = {3}", 
-									_vwapForTradingSym.calculateVWAP(), 
-									_vwapForTradingSym.getLastPx(), 
-									msg["MDEntryPx"].Value<ulong>(),
-									msg["MDEntrySize"].Value<ulong>()
-								)
-							);
-							*/
 
 						}
 						break;
@@ -909,21 +897,9 @@ namespace Blinktrade
 						UserDevice userDevice = new UserDevice();
 
 						// start the connection task to handle the Websocket connectivity and initiate the whole process
-						#if __MonoCS__
-						Task/*<int>*/ task = WebSocketSharpClientConnection.Start(url, userAccount, userDevice, protocolEngine);
-						#else
 						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine);
-						#endif
-					
-						/*
-						Task<int>[] tasks = new Task<int>[2];
-						tasks[0] = WebSocketSharpClientConnection.Start (url, userAccount, userDevice, protocolEngine);
-						//tasks[1] = ...
-						int index = Task.WaitAny(tasks);
-						tasks[index].Result;
-						*/
-
 						task.Wait(); // aguardar até a Task finalizar
+
 						if (!_userRequestExit) 
 						{
 							tradeclient.ResetData(); // must reset tradeclient to refresh whole data after new connection
