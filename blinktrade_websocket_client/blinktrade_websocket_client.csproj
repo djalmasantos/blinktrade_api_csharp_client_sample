@@ -36,7 +36,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Externalconsole>true</Externalconsole>
-    <Commandlineparameters>wss://bitcambio_api.blinktrade.com/trade/ 11 BTCBRL SELL STOP 0.03 56350 56100 0RQyddMo7dDzUdwDPTclmcbm8ax5JQTOu196UfPGIIA LrrLT07B1o4q2ar</Commandlineparameters>
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">

@@ -210,6 +210,9 @@ namespace Blinktrade
 				case "U33": // Trade History Response
 					DispatchEvent(SystemEventType.TRADE_HISTORY_RESPONSE, connection, msg);
 					break;
+				case "U23":
+					DispatchEvent(SystemEventType.DEPOSIT_REFRESH, connection, msg);
+					break;
 				case "0":
                     DispatchEvent(SystemEventType.HEARTBEAT, connection, msg);
                     break;

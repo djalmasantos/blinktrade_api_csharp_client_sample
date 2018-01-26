@@ -31,6 +31,9 @@ namespace Blinktrade
 		// stop exclusive attributes
 		private ulong _stop_price = 0;
 
+		// another workaround for the float sell strategy
+		private ulong _sell_floor = 0;
+
         
 		public event LogStatusDelegate LogStatusEvent;
 
@@ -138,6 +141,22 @@ namespace Blinktrade
 		}
 		*/
 
+		public void OnDepositRefresh(string deposit_id, string currency, ulong amount, int status, string state)
+		{
+			Console.WriteLine ("Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
+			if (this._sell_floor == 0 && currency == "BTC")
+			{
+				// *** workaround ***
+				SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
+				if (btcusd_quote == null || btcusd_quote.LastPx == 0) {
+					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
+					return;
+				}
+				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.65);
+				Console.WriteLine ("DEBUG Calculated Sell Floor {0}", this._sell_floor );
+			}
+		}
+
 		private string MakeClOrdId()
         {
             return "BLKTRD-" + _startTime.ToString() + "-" + Interlocked.Increment(ref this._cloridSeqNum).ToString();
@@ -234,12 +253,19 @@ namespace Blinktrade
 				}
 				// get the BTC Price in dollar
 				SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
-				if (btcusd_quote == null || btcusd_quote.BestAsk == 0) {
+				if (btcusd_quote == null || btcusd_quote.LastPx == 0) {
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 				}
 				// calculate the selling floor must be at least the price of the BTC in USD
-				ulong floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-				//ulong floor = 0;
+				ulong floor = 0;
+				if ( this._sell_floor > 0 ) {
+					floor = this._sell_floor;
+				}
+				else
+				{
+					floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+					//floor = (ulong)(43000*1e8);
+				}
 
 				// check the selling FLOOR
 				if ( _sellTargetPrice < floor ) {

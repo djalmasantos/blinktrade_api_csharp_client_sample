@@ -446,13 +446,22 @@ namespace Blinktrade
 						//
 						break;
 
+					case SystemEventType.DEPOSIT_REFRESH:
+						LogStatus(LogStatusType.WARN, "Receieved " + evt.evtType.ToString() + "\n" + evt.json.ToString());
+						_tradingStrategy.OnDepositRefresh(
+							evt.json["DepositID"].Value<string>(),
+							evt.json["Currency"].Value<string>(), 
+							evt.json["Value"].Value<ulong>(),
+							evt.json["Status"].Value<int>(),
+							evt.json["State"].Value<string>()
+						);
+						break;
 					case SystemEventType.CLOSED:
 						// notify the application the connection was broken
 						//_tradingStrategy.OnClose(webSocketConnection);
 						break;
 					// Following events are ignored because inheritted behaviour is sufficient for this prototype
                     case SystemEventType.OPENED:
-                    
                     case SystemEventType.ERROR:
                     case SystemEventType.LOGIN_ERROR:
                     case SystemEventType.HEARTBEAT:
