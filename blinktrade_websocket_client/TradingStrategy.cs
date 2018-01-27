@@ -263,7 +263,7 @@ namespace Blinktrade
 				}
 				else
 				{
-					floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+					//floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
 					//floor = (ulong)(43000*1e8);
 				}
 

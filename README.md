@@ -22,12 +22,13 @@ Newtonsoft Json.NET<br>
 Microsoft TPL Dataflow<br>
 
 <b>Build and Run:</b><br>
-After building the solution in Visual Studio or MonoDevelop, run blinktrade_websocket_client.exe without providing command line arguments to display help information.<br>
+After building the solution in Visual Studio or MonoDevelop, run blinktrade_websocket_client.exe without providing command line arguments to display help information. When building for Mono define the \_\_MonoCS\_\_ constant if the compiler does not do it.<br>
 
 <b>Is there a test environment to try out this sample app?</b><br>
 Yes, <a href="https://testnet.blinktrade.com/">blinktrade tesnet exchange</a>.
 
 <b>List of exchanges running the blinktrade platform</b><br>
+- [bitcambio](https://bitcambio.com.br/)
 - [chilebit](https://chilebit.net)
 - [foxbit](https://foxbit.com.br)
 - [VBTC](https://vbtc.vn)
