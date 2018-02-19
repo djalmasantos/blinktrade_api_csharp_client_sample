@@ -153,7 +153,14 @@ namespace Blinktrade
 					return;
 				}
 				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.65);
-				Console.WriteLine ("DEBUG Calculated Sell Floor {0}", this._sell_floor );
+				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
+				if (amount > 0)
+				{
+					this._sell_floor = (ulong)(5000 / amount * 1e8);
+					Console.WriteLine ("DEBUG Calculated[1] Sell Floor {0}", this._sell_floor );
+				}
+				this._sell_floor = 0;
+				Console.WriteLine ("DEBUG Calculated[2] Sell Floor {0}", this._sell_floor );
 			}
 		}
 
@@ -263,8 +270,9 @@ namespace Blinktrade
 				}
 				else
 				{
-					//floor = (ulong)(1.01 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-					//floor = (ulong)(43000*1e8);
+					floor = (ulong)(1.025 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+					//floor = (ulong)(40330*1e8);
+					//floor = 0;
 				}
 
 				// check the selling FLOOR
