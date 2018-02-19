@@ -343,11 +343,11 @@ namespace Blinktrade
                                     order.CumQty = data[indexOf["CumQty"]].Value<ulong>();
                                     order.CxlQty = data[indexOf["CxlQty"]].Value<ulong>();
                                     order.Volume = data[indexOf["Volume"]].Value<ulong>();
-                                    order.OrderDate = data[indexOf["OrderDate"]].Value<string>();
+									order.OrderDate = DateTime.ParseExact(data[indexOf["OrderDate"]].Value<string>(), "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                                     order.TimeInForce = data[indexOf["TimeInForce"]].Value<char>();
                                     LogStatus(LogStatusType.WARN, 
 										"Adding Order to MiniOMS -> ClOrdID = " + order.ClOrdID.ToString() + 
-										" OrdStatus = " + order.OrdStatus
+										" OrdStatus = " + order.OrdStatus + "["+order.OrderDate+"]"
 									);
                                     try
                                     {
@@ -367,6 +367,8 @@ namespace Blinktrade
                                 else
                                 {
                                     LogStatus(LogStatusType.INFO, "EOT - no more Order List pages to process.");
+									LogStatus(LogStatusType.INFO, "MAX BUY PRICE  = "+_miniOMS.MaxBuyPrice);	
+									LogStatus(LogStatusType.INFO, "MIN SELL PRICE = "+_miniOMS.MinSellPrice);
 									// notify application that all requestes where replied, 
 									// assuming the ORDER_LIST_REQUEST was the last in the StartInitialRequestsAfterLogon
 									//_tradingStrategy.OnStart(webSocketConnection);

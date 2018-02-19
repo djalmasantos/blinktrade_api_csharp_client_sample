@@ -9,10 +9,30 @@ namespace Blinktrade
     public class MiniOMS
     {
         private Dictionary<string, MiniOMS.Order> m_orders = new Dictionary<string, Order>();
+		//private ulong _lastBuyPrice = 0;
+		//private ulong _lastSellPrice = 0;
+		private ulong _maxBuyPrice = ulong.MinValue;
+		private ulong _minSellPrice = ulong.MaxValue;
+
+		public ulong MaxBuyPrice {get { return _maxBuyPrice;} }
+		public ulong MinSellPrice {get { return _minSellPrice;} }
 
         public void AddOrder(Order order)
         {
             m_orders.Add(order.ClOrdID, order);
+			if (order.CumQty > 0) // the order had a trade
+			{
+				// make sure it less than 24 hours ago
+				DateTime minDateTime = DateTime.UtcNow - new TimeSpan(24, 0, 0);
+				if (order.OrderDate > minDateTime) 
+				{
+					if (order.Side == OrderSide.BUY && order.AvgPx >_maxBuyPrice ) {
+						_maxBuyPrice = order.AvgPx;
+					} else if (order.Side == OrderSide.SELL && order.AvgPx <_minSellPrice ) {
+						_minSellPrice = order.AvgPx;
+					}	
+				}
+			}
         }
 
         public Order GetOrderByClOrdID(string clOrdID)
@@ -77,7 +97,7 @@ namespace Blinktrade
             ulong OrderQty { get; }
             ulong Price { get; }
             ulong Volume { get; }
-            string OrderDate { get; }
+            DateTime OrderDate { get; }
             char TimeInForce { get; }
 			ulong StopPx { get; }
         }
@@ -204,9 +224,9 @@ namespace Blinktrade
                 set { _volume = value; }
             }
 
-            private string _orderDate = string.Empty;
+			private DateTime _orderDate;// = string.Empty;
 
-            public string OrderDate
+            public DateTime OrderDate
             {
                 get { return _orderDate; }
                 set { _orderDate = value; }
