@@ -626,8 +626,11 @@ namespace Blinktrade
             JObject order_cancel_request = new JObject();
             order_cancel_request["MsgType"] = "F";
             order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
+			order_cancel_request["Side"] = "1";
             order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(order_cancel_request.ToString());
+			order_cancel_request["Side"] = "2";
+			connection.SendMessage(order_cancel_request.ToString());
         }
 
         public bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID)
