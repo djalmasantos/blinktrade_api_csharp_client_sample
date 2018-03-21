@@ -61,7 +61,7 @@ namespace Blinktrade
             login_request["UserReqTyp"] = "1";
             login_request["Username"] = connection.UserAccount.Username;
             login_request["Password"] = connection.UserAccount.Password;
-            login_request["BrokerID"] = connection.UserAccount.BrokerId;
+			login_request["BrokerID"] = connection.UserAccount.BrokerId;
 			login_request["CancelOnDisconnect"] = "1"; // enabled so that all session orders are automatically cancelled upon a disconnection (should work in next backend version)
 			if (connection.UserAccount.SecondFactor != null && connection.UserAccount.SecondFactor != string.Empty)
             {
@@ -209,6 +209,9 @@ namespace Blinktrade
                     break;
 				case "U33": // Trade History Response
 					DispatchEvent(SystemEventType.TRADE_HISTORY_RESPONSE, connection, msg);
+					break;
+			case "U35": // Ledger List_Response
+					DispatchEvent(SystemEventType.LEDGER_LIST_RESPONSE, connection, msg);
 					break;
 				case "U23":
 					DispatchEvent(SystemEventType.DEPOSIT_REFRESH, connection, msg);

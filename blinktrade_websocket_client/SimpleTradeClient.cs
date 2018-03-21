@@ -339,7 +339,7 @@ namespace Blinktrade
                                     order.AvgPx = data[indexOf["AvgPx"]].Value<ulong>();
                                     order.Price = data[indexOf["Price"]].Value<ulong>();
                                     order.OrderQty = data[indexOf["OrderQty"]].Value<ulong>();
-                                    order.OrderQty = data[indexOf["LeavesQty"]].Value<ulong>();
+                                    order.LeavesQty = data[indexOf["LeavesQty"]].Value<ulong>();
                                     order.CumQty = data[indexOf["CumQty"]].Value<ulong>();
                                     order.CxlQty = data[indexOf["CxlQty"]].Value<ulong>();
                                     order.Volume = data[indexOf["Volume"]].Value<ulong>();
@@ -458,6 +458,61 @@ namespace Blinktrade
 							evt.json["State"].Value<string>()
 						);
 						break;
+					case SystemEventType.LEDGER_LIST_RESPONSE:
+						LogStatus(LogStatusType.WARN, "Receieved " + evt.evtType.ToString() + "\n" + evt.json.ToString());
+						{
+							// process the requested list of orders
+							JObject msg = evt.json;
+							/*
+							LogStatus(LogStatusType.WARN, 
+								"Received " + evt.evtType.ToString() + " : " + "Page=" + msg["Page"].Value<string>()					
+							);
+							*/
+							JArray ledgerLst = msg["LedgerListGrp"].Value<JArray>();
+							var columns = msg["Columns"].Value<JArray>();
+							Dictionary<string, int> indexOf = new Dictionary<string, int>();
+							int index = 0;
+							foreach (JToken col in columns)
+							{
+								indexOf.Add(col.Value<string>(), index++);
+							}
+							
+							// emulate printing a csv-like file
+							Console.WriteLine("BrokerID;Created;LedgerID;AccountID;AccountName;Operation;Description;Currency;Amount;Balance;PayeeID;Reference");
+							foreach (JArray data in ledgerLst)
+							{
+								var brokerID = data[indexOf["BrokerID"]].Value<ulong>();
+								var created = DateTime.ParseExact(data[indexOf["Created"]].Value<string>(), "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+								var leadgerID = data[indexOf["LedgerID"]].Value<ulong>();
+								var accountID = data[indexOf["AccountID"]].Value<ulong>();
+								var accountName = data[indexOf["AccountName"]].Value<string>();
+								var operation = data[indexOf["Operation"]].Value<char>();
+								var description = data[indexOf["Description"]].Value<string>();
+								var currency = data[indexOf["Currency"]].Value<string>();
+								var amount = data[indexOf["Amount"]].Value<ulong>();
+								var balance = data[indexOf["Balance"]].Value<ulong>();
+								var payeeID = data[indexOf["PayeeID"]].Value<ulong>();
+								var reference = data[indexOf["Reference"]].Value<string>();
+								Console.WriteLine("{0};{1};{2};{3};{4};{5};{6};{7};{8};{9};{10};{11}", 
+											brokerID, created, leadgerID, accountID, accountName, 
+											operation, description, currency, amount,
+											balance, payeeID, reference);
+								
+							}
+							
+
+							// check and request the next page
+							if (ledgerLst.Count >= msg["PageSize"].Value<int>())
+							{
+								LogStatus(LogStatusType.INFO, "Requesting Page " + msg["Page"].Value<int>() + 1);
+								SendRequestForLedger(webSocketConnection, msg["Page"].Value<int>() + 1);
+							}
+							else
+							{
+								LogStatus(LogStatusType.INFO, "EOT - no more Ledger List pages to process.");
+							}
+						}
+						break;
 					case SystemEventType.CLOSED:
 						// notify the application the connection was broken
 						//_tradingStrategy.OnClose(webSocketConnection);
@@ -546,6 +601,11 @@ namespace Blinktrade
 
 			// 6. send request for all "open" orders
 			SendRequestForOpenOrders(connection);
+
+			// 7. send request to receive the ledger..
+			SendRequestForLedger(connection);
+
+
         }
 
         private void SendRequestForOpenOrders(IWebSocketClientConnection connection, int page = 0)
@@ -558,6 +618,20 @@ namespace Blinktrade
 			orders_list_request["Filter"] = new JArray(/*"has_leaves_qty eq 1"*/ "has_cum_qty eq 1");
             connection.SendMessage(orders_list_request.ToString());
         }
+
+		private void SendRequestForLedger(IWebSocketClientConnection connection, int page = 0)
+		{
+			JObject ledgerlst_request = new JObject();
+			ledgerlst_request["MsgType"] = "U34";
+			ledgerlst_request["LedgerListReqID"] = connection.NextOutgoingSeqNum();
+			ledgerlst_request["BrokerID"] = this.BrokerId;
+			ledgerlst_request["ClientID"] = this.UserId;
+			ledgerlst_request["Page"] = page;
+			ledgerlst_request["PageSize"] = 20;
+			ledgerlst_request["FingerPrint"] = connection.Device.FingerPrint;
+			ledgerlst_request["STUNTIP"] = connection.Device.Stuntip;
+			connection.SendMessage(ledgerlst_request.ToString());
+		}
 
         // 
 

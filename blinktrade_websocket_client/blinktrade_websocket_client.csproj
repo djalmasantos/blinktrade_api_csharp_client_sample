@@ -37,6 +37,7 @@
     <WarningLevel>4</WarningLevel>
     <Externalconsole>true</Externalconsole>
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <Commandlineparameters>wss://bitcambio_api.blinktrade.com/trade/ 11 BTCBRL BOTH DEFAULT 1 10000 36100 eXvRoZl3WosVSlSWeriN88eONrgcYdo3zSSZf9XS808 b1BUNguRrXDRLTs</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
