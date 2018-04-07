@@ -603,7 +603,7 @@ namespace Blinktrade
 			SendRequestForOpenOrders(connection);
 
 			// 7. send request to receive the ledger..
-			SendRequestForLedger(connection);
+			//SendRequestForLedger(connection);
 
 
         }
@@ -790,7 +790,7 @@ namespace Blinktrade
             Console.WriteLine("Blinktrade client websocket C# sample");
             Console.WriteLine("\nusage:\n\t" + 
 				program_name + 
-				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP> <MAX-BTC-TRADE-SIZE> " +
+				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET> <MAX-BTC-TRADE-SIZE> " +
 				" <BUY-TARGET-PRICE-OR-STOP> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT> "+
 				" <USERNAME> <PASSWORD> [<SECOND-FACTOR>]");
             Console.WriteLine("\nexample:\n\t" + 
@@ -857,7 +857,13 @@ namespace Blinktrade
 				case "STOP":
 					priceType = TradingStrategy.PriceType.STOP;	
 					if (side == default(char)) {
-						throw new ArgumentException("STOP must define BUY or SELL");
+						throw new ArgumentException("STOP must define or BUY or SELL");
+					}
+					break;
+				case "MARKET":
+					priceType = TradingStrategy.PriceType.MARKET_AS_MAKER;	
+					if (side == default(char)) {
+						throw new ArgumentException("MARKET must define or BUY or SELL");
 					}
 					break;
 					
@@ -908,26 +914,26 @@ namespace Blinktrade
                 return;
             }
 
-            try
-            {
-                if ((side == OrderSide.BUY || side == default(char)) && buyTargetPrice == 0)
-                    throw new ArgumentException("Invalid BUY Target Price");
+			if (priceType != TradingStrategy.PriceType.MARKET_AS_MAKER) {
+				try {
+					if ((side == OrderSide.BUY || side == default(char)) && buyTargetPrice == 0)
+						throw new ArgumentException ("Invalid BUY Target Price");
 
-				if (priceType != TradingStrategy.PriceType.STOP) 
+					if (priceType != TradingStrategy.PriceType.STOP) {
+						if ((side == OrderSide.SELL || side == default(char)) && sellTargetPrice == 0)
+							throw new ArgumentException ("Invalid SELL Target Price");
+
+						if (side == default(char) && buyTargetPrice >= sellTargetPrice)
+							throw new ArgumentException ("Invalid SELL and BUY Price RANGE");
+					}
+				} 
+				catch (Exception e)
 				{
-					if ((side == OrderSide.SELL || side == default(char)) && sellTargetPrice == 0)
-	                    throw new ArgumentException("Invalid SELL Target Price");
-
-					if (side == default(char) && buyTargetPrice >= sellTargetPrice)
-	                    throw new ArgumentException("Invalid SELL and BUY Price RANGE");
+					Console.WriteLine (e.Message);
+					show_usage (Process.GetCurrentProcess ().ProcessName);
+					return;
 				}
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-                show_usage(Process.GetCurrentProcess().ProcessName);
-                return;
-            }
+			}
 
             string user = args[8];
             string password = args[9];

@@ -24,7 +24,7 @@ namespace Blinktrade
 		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
-		public enum PriceType { FIXED, PEGGED, STOP }
+		public enum PriceType { FIXED, PEGGED, STOP, MARKET_AS_MAKER }
 		private PriceType _priceType;
 		private ulong _pegOffsetValue = 0;
 
@@ -152,7 +152,8 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 					return;
 				}
-				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.65);
+				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.50);
+				/*
 				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
 				if (amount > 0)
 				{
@@ -160,6 +161,7 @@ namespace Blinktrade
 					Console.WriteLine ("DEBUG Calculated[1] Sell Floor {0}", this._sell_floor );
 				}
 				this._sell_floor = 0;
+				*/
 				Console.WriteLine ("DEBUG Calculated[2] Sell Floor {0}", this._sell_floor );
 			}
 		}
@@ -242,10 +244,10 @@ namespace Blinktrade
 				// instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(1 * 1e8), // TODO: make it a parameter
+														(ulong)(2 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
-
+			
 				// let's use the VWAP as the market price (short period tick based i.e last 30 min.)
 				ulong marketPrice = _tradeclient.CalculateVWAP();
 
@@ -270,8 +272,8 @@ namespace Blinktrade
 				}
 				else
 				{
-					floor = (ulong)(1.025 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-					//floor = (ulong)(40330*1e8);
+					//floor = (ulong)(1.025 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
+					floor = (ulong)(23550*1e8);
 					//floor = 0;
 				}
 
@@ -319,7 +321,25 @@ namespace Blinktrade
 
         private void runBuyStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
         {
-            OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
+			OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
+			OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+			if (_priceType == PriceType.MARKET_AS_MAKER) {
+				ulong buyPrice = 0;
+				if (bestBid == null || bestBid.UserId != _tradeclient.UserId) {
+					if (bestOffer != null) {
+						buyPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
+					} else if (bestBid != null) {
+						buyPrice = bestBid.Price + (ulong)(0.01 * 1e8);
+					}
+				
+				}
+				if (buyPrice > 0) {
+					replaceOrder (webSocketConnection, symbol, OrderSide.BUY, buyPrice);
+				}
+				return;
+			}
+
+
             if (bestBid != null)
             {
                 if (bestBid.UserId != _tradeclient.UserId)
@@ -328,7 +348,7 @@ namespace Blinktrade
                     ulong buyPrice = bestBid.Price + (ulong)(0.01 * 1e8);
                     if (buyPrice <= this._buyTargetPrice) 
                     {
-						OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+						//OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 						if (buyPrice < bestOffer.Price) 
 						{
 							replaceOrder (webSocketConnection, symbol, OrderSide.BUY, buyPrice);
@@ -410,7 +430,25 @@ namespace Blinktrade
 
         private void runSellStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
         {
-            OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+			OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
+			OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+			if (_priceType == PriceType.MARKET_AS_MAKER) {
+				ulong sellPrice = 0;
+				if (bestOffer == null || bestOffer.UserId != _tradeclient.UserId) {
+					if (bestBid != null) {
+						sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
+					} else if (bestOffer != null) {
+						sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
+					}
+
+				}
+				if (sellPrice > 0) {
+					replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+				}
+				return;
+			}
+
+			//OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
             if (bestOffer != null)
             {
                 if (bestOffer.UserId != _tradeclient.UserId)
@@ -419,7 +457,7 @@ namespace Blinktrade
                     ulong sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
                     if (sellPrice >= _sellTargetPrice)
                     {
-						OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
+						//OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
 						if (sellPrice > bestBid.Price) {
 							replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
 						}
@@ -510,6 +548,7 @@ namespace Blinktrade
 				qty = calculateOrderQty(symbol, side, price);
 			}
 
+			// TODO: SOMENTE SUBSTITUIR SE PRECO OU QUANTIDADE FOI MUDADA!
 			// cancel the previous sent order since it is not possible to modify the order
             if (orderToReplace != null)
             {
