@@ -62,7 +62,7 @@ namespace Blinktrade
             login_request["Username"] = connection.UserAccount.Username;
             login_request["Password"] = connection.UserAccount.Password;
 			login_request["BrokerID"] = connection.UserAccount.BrokerId;
-			login_request["CancelOnDisconnect"] = "1"; // enabled so that all session orders are automatically cancelled upon a disconnection (should work in next backend version)
+			login_request["CancelOnDisconnect"] = connection.CancelOnDisconnectFlag.ToString();
 			if (connection.UserAccount.SecondFactor != null && connection.UserAccount.SecondFactor != string.Empty)
             {
                 login_request["SecondFactor"] = connection.UserAccount.SecondFactor;

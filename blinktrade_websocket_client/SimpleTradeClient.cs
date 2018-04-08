@@ -33,8 +33,9 @@ namespace Blinktrade
 		private IWebSocketClientProtocolEngine _protocolEngine;
 		private ulong _soldAmount = 0;
 		private static volatile bool _userRequestExit = false;
+		private int _cancel_open_orders_flag = 1;
 
-		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine)
+		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine, int cancel_open_orders_flag)
         {
             _brokerId = broker_id;
             _tradingSymbol = symbol;
@@ -42,6 +43,7 @@ namespace Blinktrade
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
 			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
+			_cancel_open_orders_flag = cancel_open_orders_flag;
         }
 
 		public void ResetData()
@@ -697,14 +699,17 @@ namespace Blinktrade
 
         public void SendRequestToCancelAllOrders(IWebSocketClientConnection connection)
         {
-            JObject order_cancel_request = new JObject();
-            order_cancel_request["MsgType"] = "F";
-            order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
-			order_cancel_request["Side"] = "1";
-            order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
-            connection.SendMessage(order_cancel_request.ToString());
-			order_cancel_request["Side"] = "2";
-			connection.SendMessage(order_cancel_request.ToString());
+			if (_cancel_open_orders_flag > 0)
+			{
+				JObject order_cancel_request = new JObject();
+	            order_cancel_request["MsgType"] = "F";
+	            order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
+				order_cancel_request["Side"] = "1";
+	            order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
+	            connection.SendMessage(order_cancel_request.ToString());
+				order_cancel_request["Side"] = "2";
+				connection.SendMessage(order_cancel_request.ToString());
+			}
         }
 
         public bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID)
@@ -792,16 +797,16 @@ namespace Blinktrade
 				program_name + 
 				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET> <MAX-BTC-TRADE-SIZE> " +
 				" <BUY-TARGET-PRICE-OR-STOP> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT> "+
-				" <USERNAME> <PASSWORD> [<SECOND-FACTOR>]");
+				" <CANCEL-OPEN-ORDERS-FLAG|0|1|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>]");
             Console.WriteLine("\nexample:\n\t" + 
 				program_name + 
 				" \"wss://api.testnet.blinktrade.com/trade/\" " +
-				"5 BTCUSD BOTH DEFAULT 0.1 1900.01 2000.99 user abc12345");
+				"5 BTCUSD BOTH DEFAULT 0.1 1900.01 2000.99 1 user abc12345");
         }
 
         static public void Main(string[] args)
         {
-			if (args.Length < 10 || args.Length > 11)
+			if (args.Length < 11 || args.Length > 12)
             {
                 show_usage(Process.GetCurrentProcess().ProcessName);
                 return;
@@ -935,9 +940,23 @@ namespace Blinktrade
 				}
 			}
 
-            string user = args[8];
-            string password = args[9];
-            string second_factor = args.Length == 11 ? args[10] : null;
+			int cancel_open_orders_flag;
+			try 
+			{
+				cancel_open_orders_flag = Int32.Parse(args[8]);
+				if (cancel_open_orders_flag < 0 || cancel_open_orders_flag > 1)
+					throw new ArgumentException ("Invalid CANCEL-OPEN-ORDERS-FLAG expecting 0 or 1");
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine(e.Message);
+				show_usage(Process.GetCurrentProcess().ProcessName);
+				return;
+			}
+			 
+			string user = args[9];
+            string password = args[10];
+            string second_factor = args.Length == 12 ? args[11] : null;
 
 			try 
 			{
@@ -956,7 +975,7 @@ namespace Blinktrade
 				// instantiate the protocol engine object to handle the blinktrade messaging stuff
 				WebSocketClientProtocolEngine protocolEngine = new WebSocketClientProtocolEngine();
 
-				SimpleTradeClient tradeclient = new SimpleTradeClient (broker_id, symbol, strategy, protocolEngine);
+				SimpleTradeClient tradeclient = new SimpleTradeClient (broker_id, symbol, strategy, protocolEngine, cancel_open_orders_flag);
 
 				// tradeclient must subscribe to receive the callback events from the protocol engine
 				protocolEngine.SystemEvent += tradeclient.OnBrokerNotification;
@@ -991,7 +1010,7 @@ namespace Blinktrade
 						UserDevice userDevice = new UserDevice();
 
 						// start the connection task to handle the Websocket connectivity and initiate the whole process
-						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine);
+						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine, cancel_open_orders_flag);
 						task.Wait(); // aguardar até a Task finalizar
 
 						if (!_userRequestExit) 

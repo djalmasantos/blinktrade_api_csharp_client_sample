@@ -10,14 +10,16 @@ namespace Blinktrade
 	public class WebSocketClientConnection : WebSocketClientBase, IWebSocketClientConnection 
 	{
 		private WebSocket _webSocket = null;
+		private int _cancel_on_disconnect_flag;
 
 		WebSocketClientConnection(
 			UserAccountCredentials account, 
 			UserDevice device, 
-			WebSocketClientProtocolEngine protocolEngine
+			WebSocketClientProtocolEngine protocolEngine,
+			int cancel_on_disconnect_flag
 		) : base (account, device, protocolEngine)
 		{
-			
+			_cancel_on_disconnect_flag = cancel_on_disconnect_flag;	
 		}
 
 		public bool IsConnected
@@ -28,14 +30,23 @@ namespace Blinktrade
 			}
 		}
 
+		public int CancelOnDisconnectFlag 
+		{
+			get 
+			{
+				return _cancel_on_disconnect_flag;
+			}
+		}
+
 		public static async Task/*<int>*/ Start(
 			string serverUri, 
 			UserAccountCredentials account, 
 			UserDevice device, 
-			WebSocketClientProtocolEngine protocolEngine)
+			WebSocketClientProtocolEngine protocolEngine,
+			int cancel_on_disconnect_flag)
 		{
 
-			WebSocketClientConnection connectionInstance = new WebSocketClientConnection(account, device, protocolEngine);
+			WebSocketClientConnection connectionInstance = new WebSocketClientConnection(account, device, protocolEngine, cancel_on_disconnect_flag);
 			try
 			{
 				WebSocket ws  = new WebSocket(serverUri);

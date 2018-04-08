@@ -35,6 +35,7 @@ namespace Blinktrade
         long receivedMessageCounter { get; }
         UserDevice Device { get; }
         UserAccountCredentials UserAccount { get; }
+		int CancelOnDisconnectFlag{ get; }
     }
 
     // event arguments definition
