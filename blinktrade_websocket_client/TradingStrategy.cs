@@ -325,19 +325,18 @@ namespace Blinktrade
 			OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 			if (_priceType == PriceType.MARKET_AS_MAKER) {
 				ulong buyPrice = 0;
-				if (bestBid == null || bestBid.UserId != _tradeclient.UserId) {
-					if (bestOffer != null) {
-						buyPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
-					} else if (bestBid != null) {
-						buyPrice = bestBid.Price + (ulong)(0.01 * 1e8);
-					}
-				
+				if (bestOffer != null) {
+					buyPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
+				} else if (bestBid != null) {
+					buyPrice = bestBid.Price;
 				}
+
 				if (buyPrice > 0) {
-					replaceOrder (webSocketConnection, symbol, OrderSide.BUY, buyPrice);
+					replaceOrder(webSocketConnection, symbol, OrderSide.BUY, buyPrice);
 				}
 				return;
 			}
+			
 
 
             if (bestBid != null)
@@ -434,16 +433,13 @@ namespace Blinktrade
 			OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 			if (_priceType == PriceType.MARKET_AS_MAKER) {
 				ulong sellPrice = 0;
-				if (bestOffer == null || bestOffer.UserId != _tradeclient.UserId) {
-					if (bestBid != null) {
-						sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
-					} else if (bestOffer != null) {
-						sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
-					}
-
+				if (bestBid != null) {
+					sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
+				} else if (bestOffer != null) {
+					sellPrice = bestOffer.Price;
 				}
 				if (sellPrice > 0) {
-					replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+					replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
 				}
 				return;
 			}
@@ -548,7 +544,10 @@ namespace Blinktrade
 				qty = calculateOrderQty(symbol, side, price);
 			}
 
-			// TODO: SOMENTE SUBSTITUIR SE PRECO OU QUANTIDADE FOI MUDADA!
+			if (qty < _minOrderSize) {
+				return; // order is too small to send
+			}
+
 			// cancel the previous sent order since it is not possible to modify the order
             if (orderToReplace != null)
             {
@@ -564,13 +563,14 @@ namespace Blinktrade
                                     orderToReplace.ClOrdID,
                                     side)
                             );
-                        return; // wait the confirmation
+                        return; // wait the confirmation of the NEW or CANCEL
 					case OrdStatus.NEW:
 					case OrdStatus.PARTIALLY_FILLED:
 	                    // cancel the order to replace it
-						if (qty < _minOrderSize) {
-							return; // order is too small to replace
-						}
+						
+						if (orderToReplace.Price == price && orderToReplace.LeavesQty == qty)
+							return; // order is essencially the same and should not be replaced
+					
 						_tradeclient.CancelOrderByClOrdID (webSocketConnection, orderToReplace.ClOrdID);
 						break;
 
@@ -579,7 +579,7 @@ namespace Blinktrade
                 }
             }
             
-			// send a new buy order
+			// send a new order
             sendOrder(webSocketConnection, symbol, side, qty, price);
         }
         
