@@ -795,9 +795,9 @@ namespace Blinktrade
             Console.WriteLine("Blinktrade client websocket C# sample");
             Console.WriteLine("\nusage:\n\t" + 
 				program_name + 
-				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET> <MAX-BTC-TRADE-SIZE> " +
-				" <BUY-TARGET-PRICE-OR-STOP> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT> "+
-				" <CANCEL-OPEN-ORDERS-FLAG|0|1|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>]");
+				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET> <MAX-BTC-TRADE-SIZE>" +
+				" <BUY-TARGET-PRICE-OR-STOP> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT>"+
+				" <CANCEL-OPEN-ORDERS-FLAG|0|1|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>] [<FINGER-PRINT>]");
             Console.WriteLine("\nexample:\n\t" + 
 				program_name + 
 				" \"wss://api.testnet.blinktrade.com/trade/\" " +
@@ -806,7 +806,7 @@ namespace Blinktrade
 
         static public void Main(string[] args)
         {
-			if (args.Length < 11 || args.Length > 12)
+			if (args.Length < 11 || args.Length > 13)
             {
                 show_usage(Process.GetCurrentProcess().ProcessName);
                 return;
@@ -956,7 +956,8 @@ namespace Blinktrade
 			 
 			string user = args[9];
             string password = args[10];
-            string second_factor = args.Length == 12 ? args[11] : null;
+            string second_factor = args.Length > 11 ? args[11] : null;
+			string finger_print  = args.Length == 13 ? args[12] : null;
 
 			try 
 			{
@@ -1007,7 +1008,7 @@ namespace Blinktrade
 						LogStatus (LogStatusType.WARN, "Please Wait...");
 
 						// gather and provide the user device data (local ip, external ip etc)
-						UserDevice userDevice = new UserDevice();
+						UserDevice userDevice = new UserDevice(finger_print);
 
 						// start the connection task to handle the Websocket connectivity and initiate the whole process
 						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine, cancel_open_orders_flag);

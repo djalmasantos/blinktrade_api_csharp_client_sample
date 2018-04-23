@@ -152,7 +152,7 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 					return;
 				}
-				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.50);
+				this._sell_floor = (ulong)(btcusd_quote.LastPx * 4);
 				/*
 				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
 				if (amount > 0)
@@ -244,7 +244,7 @@ namespace Blinktrade
 				// instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(2 * 1e8), // TODO: make it a parameter
+														(ulong)(5 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 			
@@ -273,7 +273,7 @@ namespace Blinktrade
 				else
 				{
 					//floor = (ulong)(1.025 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-					floor = (ulong)(23550*1e8);
+					// floor = (ulong)(30000*1e8);
 					//floor = 0;
 				}
 
@@ -377,7 +377,7 @@ namespace Blinktrade
 						// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
 						if (position > 5+1 && orderBook.DoesAmountExceedsLimit (
 							    					OrderBook.OrdSide.BUY,
-							    					position - 1, (ulong)(10 * 1e8))) 
+							    					position - 1, (ulong)(20 * 1e8))) 
 						{
 							_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategyBuyOrderClorid);
 							return;

@@ -10,12 +10,13 @@ namespace Blinktrade
 {
     public class UserDevice
     {
-        private const string _fingerPrint = "1730142891";
+		private string _fingerPrint;
         private JObject _stuntip = new JObject();
-        public UserDevice()
+		public UserDevice(string finger_print)
         {
             _stuntip["local"] = Util.GetLocalIPAddress();
             _stuntip["public"] = new JArray(Util.GetExternalIpAddress());
+			_fingerPrint = finger_print != null ? finger_print : "123456789";
         }
 
 		public string FingerPrint
