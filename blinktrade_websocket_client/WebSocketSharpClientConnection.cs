@@ -43,10 +43,11 @@ namespace Blinktrade
 			UserAccountCredentials account, 
 			UserDevice device, 
 			WebSocketClientProtocolEngine protocolEngine,
-			int cancel_on_disconnect_flag)
+			COOFlag cancel_open_orders_flag)
 		{
 
-			WebSocketClientConnection connectionInstance = new WebSocketClientConnection(account, device, protocolEngine, cancel_on_disconnect_flag);
+			int cancel_on_disconnect = (cancel_open_orders_flag & COOFlag.CANCEL_ON_DISCONNECT) != 0 ? 1 : 0;
+			WebSocketClientConnection connectionInstance = new WebSocketClientConnection(account, device, protocolEngine, cancel_on_disconnect);
 			try
 			{
 				WebSocket ws  = new WebSocket(serverUri);

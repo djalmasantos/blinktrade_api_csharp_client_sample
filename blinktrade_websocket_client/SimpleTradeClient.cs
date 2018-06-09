@@ -33,9 +33,9 @@ namespace Blinktrade
 		private IWebSocketClientProtocolEngine _protocolEngine;
 		private ulong _soldAmount = 0;
 		private static volatile bool _userRequestExit = false;
-		private int _cancel_open_orders_flag = 1;
+		private COOFlag _cancel_open_orders_flag = COOFlag.DEFAULT;
 
-		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine, int cancel_open_orders_flag)
+		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine, COOFlag cancel_open_orders_flag)
         {
             _brokerId = broker_id;
             _tradingSymbol = symbol;
@@ -541,7 +541,9 @@ namespace Blinktrade
         private void StartInitialRequestsAfterLogon(IWebSocketClientConnection connection)
         {
 			// 1. cancel all user orders 
-            SendRequestToCancelAllOrders(connection); // not necessary if cancel on disconnect is active
+			if ((_cancel_open_orders_flag & COOFlag.CANCEL_ON_LOGON)!=0) {
+				SendRequestToCancelAllOrders(connection);
+			}
 
             // 2. send the balance request
             JObject balance_request = new JObject();
@@ -699,17 +701,14 @@ namespace Blinktrade
 
         public void SendRequestToCancelAllOrders(IWebSocketClientConnection connection)
         {
-			if (_cancel_open_orders_flag > 0)
-			{
-				JObject order_cancel_request = new JObject();
-	            order_cancel_request["MsgType"] = "F";
-	            order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
-				order_cancel_request["Side"] = "1";
-	            order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
-	            connection.SendMessage(order_cancel_request.ToString());
-				order_cancel_request["Side"] = "2";
-				connection.SendMessage(order_cancel_request.ToString());
-			}
+			JObject order_cancel_request = new JObject();
+	        order_cancel_request["MsgType"] = "F";
+	        order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
+			order_cancel_request["Side"] = "1";
+	        order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
+	        connection.SendMessage(order_cancel_request.ToString());
+			order_cancel_request["Side"] = "2";
+			connection.SendMessage(order_cancel_request.ToString());
         }
 
         public bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID)
@@ -940,12 +939,14 @@ namespace Blinktrade
 				}
 			}
 
-			int cancel_open_orders_flag;
+			COOFlag cancel_open_orders_flag;
 			try 
 			{
-				cancel_open_orders_flag = Int32.Parse(args[8]);
-				if (cancel_open_orders_flag < 0 || cancel_open_orders_flag > 1)
-					throw new ArgumentException ("Invalid CANCEL-OPEN-ORDERS-FLAG expecting 0 or 1");
+				int cfg_value = Int32.Parse(args[8]);
+				if (cfg_value < 0 || cfg_value > 7) {
+					throw new ArgumentException ("Invalid CANCEL-OPEN-ORDERS-FLAG expecting 0-7");
+				}
+				cancel_open_orders_flag = (COOFlag) cfg_value;
 			}
 			catch (Exception e)
 			{
@@ -1080,7 +1081,7 @@ namespace Blinktrade
 			// workaround to cancel all orders when application is dying (TODO: extend for more connections in the future)
 			this._tradingStrategy.Enabled = false; // disable strategy
 			Thread.Sleep(100);
-			if (this._protocolEngine.GetConnections().Count > 0) {
+			if ((_cancel_open_orders_flag & COOFlag.CANCEL_ON_APP_EXIT) != 0 && this._protocolEngine.GetConnections().Count > 0) {
 				this.SendRequestToCancelAllOrders (this._protocolEngine.GetConnections()[0]);
 				Thread.Sleep(100);
 				this.SendRequestToCancelAllOrders (this._protocolEngine.GetConnections()[0]);

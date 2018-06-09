@@ -2,7 +2,7 @@
     
 namespace Blinktrade
 {
-    // protocol defined values (FIX inherited)
+    // protocol defined values (most of them FIX inherited values)
     public class OrdType
     {
         public const char MARKET = '1';
@@ -38,4 +38,13 @@ namespace Blinktrade
     {
         public const char PARTICIPATE_DONT_INITIATE = '6';
     }
+
+	// Bitwise Cancel Open Orders Flag
+	public enum COOFlag { 
+		DO_NOT_CANCEL_OPEN_ORDERS = 0,
+		CANCEL_ON_LOGON = 1,
+		CANCEL_ON_APP_EXIT = 2, 
+		CANCEL_ON_DISCONNECT = 4,
+		DEFAULT = CANCEL_ON_LOGON | CANCEL_ON_APP_EXIT | CANCEL_ON_DISCONNECT
+	};
 }
