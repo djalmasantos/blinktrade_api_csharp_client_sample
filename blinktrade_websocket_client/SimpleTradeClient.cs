@@ -794,9 +794,9 @@ namespace Blinktrade
             Console.WriteLine("Blinktrade client websocket C# sample");
             Console.WriteLine("\nusage:\n\t" + 
 				program_name + 
-				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET> <MAX-BTC-TRADE-SIZE>" +
-				" <BUY-TARGET-PRICE-OR-STOP> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT>"+
-				" <CANCEL-OPEN-ORDERS-FLAG|0|1|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>] [<FINGER-PRINT>]");
+				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET|DEEP> <MAX-BTC-TRADE-SIZE>" +
+				" <BUY-TARGET-PRICE-OR-STOP-OR-MINBOOKDEPTH> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT-OR-MAXBOOKDEPTH>"+
+				" <CANCEL-OPEN-ORDERS-BITWISE-FLAG|0-7|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>] [<FINGER-PRINT>]");
             Console.WriteLine("\nexample:\n\t" + 
 				program_name + 
 				" \"wss://api.testnet.blinktrade.com/trade/\" " +
@@ -944,7 +944,7 @@ namespace Blinktrade
 			{
 				int cfg_value = Int32.Parse(args[8]);
 				if (cfg_value < 0 || cfg_value > 7) {
-					throw new ArgumentException ("Invalid CANCEL-OPEN-ORDERS-FLAG expecting 0-7");
+					throw new ArgumentException ("Invalid CANCEL-OPEN-ORDERS-BITWISE-FLAG expecting 0-7");
 				}
 				cancel_open_orders_flag = (COOFlag) cfg_value;
 			}
