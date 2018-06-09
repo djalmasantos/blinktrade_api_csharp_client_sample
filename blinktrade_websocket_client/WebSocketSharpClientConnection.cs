@@ -10,16 +10,15 @@ namespace Blinktrade
 	public class WebSocketClientConnection : WebSocketClientBase, IWebSocketClientConnection 
 	{
 		private WebSocket _webSocket = null;
-		private int _cancel_on_disconnect_flag;
 
 		WebSocketClientConnection(
 			UserAccountCredentials account, 
 			UserDevice device, 
 			WebSocketClientProtocolEngine protocolEngine,
 			int cancel_on_disconnect_flag
-		) : base (account, device, protocolEngine)
+		) : base (account, device, protocolEngine, cancel_on_disconnect_flag)
 		{
-			_cancel_on_disconnect_flag = cancel_on_disconnect_flag;	
+			
 		}
 
 		public bool IsConnected
@@ -27,14 +26,6 @@ namespace Blinktrade
 			get
 			{
 				return (_webSocket != null && _webSocket.ReadyState == WebSocketState.Open);
-			}
-		}
-
-		public int CancelOnDisconnectFlag 
-		{
-			get 
-			{
-				return _cancel_on_disconnect_flag;
 			}
 		}
 

@@ -7,11 +7,13 @@ namespace Blinktrade
 	{
 		public WebSocketClientBase (UserAccountCredentials account, 
 									UserDevice device, 
-									WebSocketClientProtocolEngine protocolEngine)
+									WebSocketClientProtocolEngine protocolEngine,
+									int cancel_on_disconnect_flag)
 		{
 			_account = account;
 			_device = device;
 			_protocolEngine = protocolEngine;
+			_cancel_on_disconnect_flag = cancel_on_disconnect_flag;
 		}
 
 		protected IWebSocketClientProtocolEngine _protocolEngine = null;
@@ -20,6 +22,7 @@ namespace Blinktrade
 		private int _seqnum = 0;
 		protected long _receiveMessageCounter = 0;
 		private bool _loggedOn = false;
+		private int _cancel_on_disconnect_flag;
 
 		public bool IsLoggedOn
 		{
@@ -46,6 +49,14 @@ namespace Blinktrade
 			get
 			{
 				return _account;
+			}
+		}
+
+		public int CancelOnDisconnectFlag 
+		{
+			get 
+			{
+				return _cancel_on_disconnect_flag;
 			}
 		}
 
