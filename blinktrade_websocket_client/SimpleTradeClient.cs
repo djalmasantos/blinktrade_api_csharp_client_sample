@@ -870,7 +870,13 @@ namespace Blinktrade
 						throw new ArgumentException("MARKET must define or BUY or SELL");
 					}
 					break;
-					
+				case "DEEP":
+					if ( side == OrderSide.BUY )
+						priceType = TradingStrategy.PriceType.EXPLORE_BOOK_DEPTH;
+					else
+						throw new ArgumentException("DEEP is currently supported only to BUY");
+					break;
+
 				default:
 					show_usage(Process.GetCurrentProcess().ProcessName);
 					return;

@@ -24,7 +24,7 @@ namespace Blinktrade
 		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
-		public enum PriceType { FIXED, PEGGED, STOP, MARKET_AS_MAKER }
+		public enum PriceType { FIXED, PEGGED, STOP, MARKET_AS_MAKER, EXPLORE_BOOK_DEPTH }
 		private PriceType _priceType;
 		private ulong _pegOffsetValue = 0;
 
@@ -33,6 +33,9 @@ namespace Blinktrade
 
 		// another workaround for the float sell strategy
 		private ulong _sell_floor = 0;
+
+		private ulong _minBookDepth = 0;
+		private ulong _maxBookDepth = 0;
 
         
 		public event LogStatusDelegate LogStatusEvent;
@@ -65,6 +68,13 @@ namespace Blinktrade
 			if (priceType == PriceType.PEGGED && side == OrderSide.SELL) 
 			{
 				_pegOffsetValue = sell_target_price;
+			}
+
+			// ugly workaround to explore book depth strategy without a hard refactory
+			if (priceType == PriceType.EXPLORE_BOOK_DEPTH) 
+			{
+				_minBookDepth = _buyTargetPrice;
+				_maxBookDepth = _sellTargetPrice;
 			}
 					
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
@@ -336,8 +346,36 @@ namespace Blinktrade
 				}
 				return;
 			}
-			
 
+			if (_priceType == PriceType.EXPLORE_BOOK_DEPTH) 
+			{
+				// set the price based on the depth (this is a lot inefficent but I don't care)
+				OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
+				ulong max_price = orderBook.MaxPriceForAmountWithoutSelfOrders(OrderBook.OrdSide.BUY, _minBookDepth, _tradeclient.UserId);
+				ulong min_price = orderBook.MaxPriceForAmountWithoutSelfOrders(OrderBook.OrdSide.BUY, _maxBookDepth, _tradeclient.UserId);
+				max_price = max_price < ulong.MaxValue ? max_price : min_price;
+
+				if (max_price < ulong.MaxValue) {
+					max_price += (ulong)(0.01 * 1e8); // increment in 1 cent because min and max might be the same in a tight book range
+					var myOrder = _tradeclient.miniOMS.GetOrderByClOrdID (this._strategyBuyOrderClorid);
+					if ((myOrder == null) || (myOrder.Price > max_price || myOrder.Price < min_price)) {
+						LogStatus (LogStatusType.WARN, String.Format ("[DT] must change order price not in acceptable position {0} {1} {2}", myOrder != null ? myOrder.Price : 0, max_price, min_price));
+						_buyTargetPrice = min_price + (ulong)(0.01 * 1e8);
+					} else {
+						return; // don't change the order because it is still in an acceptable position
+					}
+				} else {
+					ulong market_price = _tradeclient.CalculateVWAP();
+					ulong lastPrice = _tradeclient.GetLastPrice();
+					ulong off_sale_price = ulong.MaxValue;
+					SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus ("UOL", "USDBRL"); // use USDBRT for the turism quote
+					SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
+					if (usd_official_quote != null && usd_official_quote.BestBid > 0 && btcusd_quote != null && btcusd_quote.LastPx > 0) {
+						off_sale_price = (ulong)(usd_official_quote.BestBid / 1e8 * btcusd_quote.BestBid / 1e8 * 0.5 * 1e8);	
+					}
+					_buyTargetPrice = Math.Min(Math.Min(market_price, lastPrice), off_sale_price);
+				}
+			}
 
             if (bestBid != null)
             {
@@ -374,13 +412,14 @@ namespace Blinktrade
                         int position = (i < 0 ? ~i : i);
 						Debug.Assert (position > 0);
                         
-						// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
-						if (position > 5+1 && orderBook.DoesAmountExceedsLimit (
-							    					OrderBook.OrdSide.BUY,
-							    					position - 1, (ulong)(20 * 1e8))) 
-						{
-							_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategyBuyOrderClorid);
-							return;
+						if (this._priceType != PriceType.EXPLORE_BOOK_DEPTH) {
+							// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
+							if (position > 5 + 1 && orderBook.DoesAmountExceedsLimit (
+								    OrderBook.OrdSide.BUY,
+								    position - 1, (ulong)(20 * 1e8))) {
+								_tradeclient.CancelOrderByClOrdID (webSocketConnection, _strategyBuyOrderClorid);
+								return;
+							}
 						}
 
 						var pivotOrder = buyside[position];
@@ -423,7 +462,7 @@ namespace Blinktrade
             }
             else
             {
-                // TODO: empty book scenario
+				// TODO: empty book scenario
             }
         }
 
