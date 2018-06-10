@@ -462,7 +462,9 @@ namespace Blinktrade
             }
             else
             {
-				// TODO: empty book scenario
+				// empty book scenario
+				ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, _buyTargetPrice);
+				sendOrder(webSocketConnection, symbol, OrderSide.BUY, availableQty, _buyTargetPrice);
             }
         }
 
