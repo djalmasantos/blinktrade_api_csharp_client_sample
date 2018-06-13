@@ -42,7 +42,7 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 1);
 			_cancel_open_orders_flag = cancel_open_orders_flag;
         }
 
@@ -52,7 +52,7 @@ namespace Blinktrade
 			_miniOMS = new MiniOMS();
 			_allOrderBooks.Clear();
 			_securityStatusEntries.Clear();
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 30);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 1);
 			_tradingStrategy.Reset();
 		}
 
