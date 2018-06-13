@@ -22,7 +22,7 @@ Newtonsoft Json.NET<br>
 Microsoft TPL Dataflow<br>
 
 <b>Build and Run:</b><br>
-After building the solution in Visual Studio or MonoDevelop, run blinktrade_websocket_client.exe without providing command line arguments to display help information. When building for Mono: make sure \_\_MonoCS\_\_ is defined (you must define it yourself if the compiler version you are using no longer do it), otherwise the program might build but it might not be able to run properly with Mono (see Dependencies).<br>
+After building the solution in Visual Studio or MonoDevelop, run blinktrade_websocket_client.exe without providing command line arguments to display help information. When building for Mono, make sure \_\_MonoCS\_\_ is defined, you must define it yourself if the compiler version you are using no longer do it, otherwise the program might build but it might not run properly with Mono (see Dependencies).<br>
 
 <b>Is there a test environment to try out this sample app?</b><br>
 Yes, <a href="https://testnet.blinktrade.com/">blinktrade tesnet exchange</a>.
