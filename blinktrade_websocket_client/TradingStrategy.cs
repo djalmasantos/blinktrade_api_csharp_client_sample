@@ -358,7 +358,7 @@ namespace Blinktrade
 				if (max_price < ulong.MaxValue) {
 					max_price += (ulong)(0.01 * 1e8); // increment in 1 cent because min and max might be the same in a tight book range
 					var myOrder = _tradeclient.miniOMS.GetOrderByClOrdID (this._strategyBuyOrderClorid);
-					if ((myOrder == null) || (myOrder.Price > max_price || myOrder.Price < min_price)) {
+					if (myOrder == null || myOrder.Price > max_price || myOrder.Price < min_price) {
 						LogStatus (LogStatusType.WARN, String.Format ("[DT] must change order price not in acceptable position {0} {1} {2}", myOrder != null ? myOrder.Price : 0, max_price, min_price));
 						_buyTargetPrice = min_price + (ulong)(0.01 * 1e8);
 					} else {
