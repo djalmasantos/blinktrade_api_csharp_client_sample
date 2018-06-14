@@ -354,10 +354,11 @@ namespace Blinktrade
 				ulong max_price = orderBook.MaxPriceForAmountWithoutSelfOrders(OrderBook.OrdSide.BUY, _minBookDepth, _tradeclient.UserId);
 				ulong min_price = orderBook.MaxPriceForAmountWithoutSelfOrders(OrderBook.OrdSide.BUY, _maxBookDepth, _tradeclient.UserId);
 				max_price = max_price < ulong.MaxValue ? max_price : min_price;
+				var myOrder = _tradeclient.miniOMS.GetOrderByClOrdID(this._strategyBuyOrderClorid);
 
 				if (max_price < ulong.MaxValue) {
+					min_price = min_price < ulong.MaxValue ? min_price : max_price;
 					max_price += (ulong)(0.01 * 1e8); // increment in 1 cent because min and max might be the same in a tight book range
-					var myOrder = _tradeclient.miniOMS.GetOrderByClOrdID (this._strategyBuyOrderClorid);
 					if (myOrder == null || myOrder.Price > max_price || myOrder.Price < min_price) {
 						LogStatus (LogStatusType.WARN, String.Format ("[DT] must change order price not in acceptable position {0} {1} {2}", myOrder != null ? myOrder.Price : 0, max_price, min_price));
 						_buyTargetPrice = min_price + (ulong)(0.01 * 1e8);
@@ -365,15 +366,17 @@ namespace Blinktrade
 						return; // don't change the order because it is still in an acceptable position
 					}
 				} else {
-					ulong market_price = _tradeclient.CalculateVWAP();
-					ulong lastPrice = _tradeclient.GetLastPrice();
-					ulong off_sale_price = ulong.MaxValue;
+					// no reference found in the book
 					SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus ("UOL", "USDBRL"); // use USDBRT for the turism quote
 					SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
-					if (usd_official_quote != null && usd_official_quote.BestBid > 0 && btcusd_quote != null && btcusd_quote.LastPx > 0) {
-						off_sale_price = (ulong)(usd_official_quote.BestBid / 1e8 * btcusd_quote.BestBid / 1e8 * 0.5 * 1e8);	
+					if (usd_official_quote != null && usd_official_quote.BestBid > 0 && btcusd_quote != null && btcusd_quote.BestBid > 0) {
+						ulong market_price = _tradeclient.CalculateVWAP();
+						ulong lastPrice = _tradeclient.GetLastPrice();
+						ulong off_sale_price = (ulong)(usd_official_quote.BestBid / 1e8 * btcusd_quote.BestBid / 1e8 * 0.5 * 1e8);
+						_buyTargetPrice = Math.Min (Math.Min (market_price, lastPrice), off_sale_price);
+					} else {
+						return;
 					}
-					_buyTargetPrice = Math.Min(Math.Min(market_price, lastPrice), off_sale_price);
 				}
 			}
 
@@ -607,8 +610,7 @@ namespace Blinktrade
                         return; // wait the confirmation of the NEW or CANCEL
 					case OrdStatus.NEW:
 					case OrdStatus.PARTIALLY_FILLED:
-	                    // cancel the order to replace it
-						
+	                    // cancel the order to replace it						
 						if (orderToReplace.Price == price && orderToReplace.LeavesQty == qty)
 							return; // order is essencially the same and should not be replaced
 					
