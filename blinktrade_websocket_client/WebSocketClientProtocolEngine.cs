@@ -57,6 +57,7 @@ namespace Blinktrade
             // build the json Login Request Message
             JObject login_request = new JObject();
             login_request["MsgType"] = "BE";
+            login_request["ClientID"] = "1";
             login_request["UserReqID"] = connection.NextOutgoingSeqNum();
             login_request["UserReqTyp"] = "1";
             login_request["Username"] = connection.UserAccount.Username;
@@ -257,8 +258,8 @@ namespace Blinktrade
             test_request["MsgType"] = "1";
             test_request["FingerPrint"] = connection.Device.FingerPrint;
             test_request["STUNTIP"] = connection.Device.Stuntip;
-            test_request["TestReqID"] = connection.NextOutgoingSeqNum().ToString();
-            test_request["SendTime"] = Util.ConvertToUnixTimestamp(DateTime.Now).ToString();
+            test_request["TestReqID"] = connection.NextOutgoingSeqNum();
+            test_request["SendTime"] = (ulong) Util.ConvertToUnixTimestamp(DateTime.Now);
             string test_request_msg = test_request.ToString();
             connection.SendMessage(test_request_msg);
         }

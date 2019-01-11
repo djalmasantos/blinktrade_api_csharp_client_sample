@@ -8,7 +8,7 @@ namespace Blinktrade
 {
     public class TestRequestDispatcher
     {
-        public static readonly TimeSpan _testRequestDelay = TimeSpan.FromMilliseconds(30000);
+        public static readonly TimeSpan _testRequestDelay = TimeSpan.FromMilliseconds(10000);
 		private bool _enableTestRequest = true;
 
 		public bool EnableTestRequest

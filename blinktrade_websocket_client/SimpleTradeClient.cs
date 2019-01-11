@@ -42,17 +42,17 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 1);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 5);
 			_cancel_open_orders_flag = cancel_open_orders_flag;
         }
-
+        
 		public void ResetData()
 		{
 			_balances.Clear();
 			_miniOMS = new MiniOMS();
 			_allOrderBooks.Clear();
 			_securityStatusEntries.Clear();
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 1);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 5);
 			_tradingStrategy.Reset();
 		}
 
@@ -130,7 +130,7 @@ namespace Blinktrade
                         LogStatus(LogStatusType.INFO, "Processing after succesful LOGON");
                         this._myUserID = evt.json["UserID"].Value<ulong>();
 						// disable test request to avoid disconnection during the "slow" market data processing
-						webSocketConnection.EnableTestRequest = false; 
+						//webSocketConnection.EnableTestRequest = false; 
                         StartInitialRequestsAfterLogon(webSocketConnection);
                         break;
 
@@ -548,10 +548,11 @@ namespace Blinktrade
             // 2. send the balance request
             JObject balance_request = new JObject();
             balance_request["MsgType"] = "U2";
+            balance_request["AccountID"] = 1;
             balance_request["BalanceReqID"] = connection.NextOutgoingSeqNum();
             balance_request["FingerPrint"] = connection.Device.FingerPrint;
             balance_request["STUNTIP"] = connection.Device.Stuntip;
-            connection.SendMessage(balance_request.ToString());
+            //connection.SendMessage(balance_request.ToString());
 
             // 3. send market data request
             JObject marketdata_request = new JObject();
@@ -564,7 +565,7 @@ namespace Blinktrade
             marketdata_request["Instruments"] = new JArray(_tradingSymbol);
             marketdata_request["FingerPrint"] = connection.Device.FingerPrint;
             marketdata_request["STUNTIP"] = connection.Device.Stuntip;
-            connection.SendMessage(marketdata_request.ToString());
+            //connection.SendMessage(marketdata_request.ToString());
 
             // 4. send security status request
             JObject securitystatus_request = new JObject();
@@ -591,25 +592,39 @@ namespace Blinktrade
             securitystatus_request["Instruments"] = instruments;
             securitystatus_request["FingerPrint"] = connection.Device.FingerPrint;
             securitystatus_request["STUNTIP"] = connection.Device.Stuntip;
-            connection.SendMessage(securitystatus_request.ToString());
+            //connection.SendMessage(securitystatus_request.ToString());
 
-			// 5. send the trade history request
-			JObject trades_request = new JObject();
+			// 5. send the trade history request	
+            JObject trades_request = new JObject();
 			trades_request["MsgType"] = "U32";
 			trades_request["TradeHistoryReqID"] = connection.NextOutgoingSeqNum();
 			//trades_request["Filter"] = new JArray("Symbol eq 'BTCBRL'"); // not working
 			//trades_request["SymbolList"] = new JArray("BTCBRL"); // not working
 			trades_request["FingerPrint"] = connection.Device.FingerPrint;
 			trades_request["STUNTIP"] = connection.Device.Stuntip;
-			connection.SendMessage(trades_request.ToString());
+            //connection.SendMessage(trades_request.ToString());
 
-			// 6. send request for all "open" orders
-			SendRequestForOpenOrders(connection);
+            // 6. send request for all "open" orders
+            //SendRequestForOpenOrders(connection);
 
-			// 7. send request to receive the ledger..
-			//SendRequestForLedger(connection);
+            // 7. send request to receive the ledger..
+            //SendRequestForLedger(connection);
 
-
+            // 8. send an order to the new backend
+            JObject new_order_single = new JObject();
+            new_order_single["MsgType"] = "D";
+            new_order_single["ClOrdID"] = "test1";
+            new_order_single["AccountID"] = 1;
+            new_order_single["Symbol"] = "BTCUSD";
+            new_order_single["Side"] = "1";
+            new_order_single["OrdType"] = "2";
+            new_order_single["Price"] = (ulong)(4000*1e8);
+            new_order_single["OrderQty"] = (ulong)(1 * 1e8);
+            //new_order_single["BrokerID"] = 1;
+            new_order_single["ExecInst"] = "6";
+            new_order_single["FingerPrint"] = connection.Device.FingerPrint;
+            new_order_single["STUNTIP"] = connection.Device.Stuntip;
+            connection.SendMessage(new_order_single.ToString());
         }
 
         private void SendRequestForOpenOrders(IWebSocketClientConnection connection, int page = 0)
@@ -703,12 +718,14 @@ namespace Blinktrade
         {
 			JObject order_cancel_request = new JObject();
 	        order_cancel_request["MsgType"] = "F";
-	        order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
+            order_cancel_request["ClOrdID"] = "CANCEL_1"; //workaround novo backend
+            order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
 			order_cancel_request["Side"] = "1";
 	        order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
 	        connection.SendMessage(order_cancel_request.ToString());
 			order_cancel_request["Side"] = "2";
-			connection.SendMessage(order_cancel_request.ToString());
+            order_cancel_request["ClOrdID"] = "CANCEL_2"; // workaround novo backend
+            connection.SendMessage(order_cancel_request.ToString());
         }
 
         public bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID)
@@ -721,6 +738,7 @@ namespace Blinktrade
                     orderToCancel.OrdStatus = OrdStatus.PENDING_CANCEL;
                     JObject order_cancel_request = new JObject();
                     order_cancel_request["MsgType"] = "F";
+                    order_cancel_request["OrigClOrdID"] = clOrdID;
                     order_cancel_request["ClOrdID"] = clOrdID;
                     order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
                     order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
