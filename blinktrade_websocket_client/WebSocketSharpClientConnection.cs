@@ -42,6 +42,7 @@ namespace Blinktrade
 			try
 			{
 				WebSocket ws  = new WebSocket(serverUri);
+                // ws.Origin = "http://blinktrade.com";
 				connectionInstance._webSocket = ws;
 
 				ws.OnOpen += (sender, e) => 

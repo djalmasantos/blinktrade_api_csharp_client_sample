@@ -162,7 +162,7 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 					return;
 				}
-				this._sell_floor = (ulong)(btcusd_quote.LastPx * 4);
+				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.7);
 				/*
 				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
 				if (amount > 0)
@@ -254,7 +254,7 @@ namespace Blinktrade
 				// instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(5 * 1e8), // TODO: make it a parameter
+														(ulong)(1 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 			

@@ -27,13 +27,14 @@ namespace Blinktrade
 		// TODO: MarketDataHelper class
 		protected Dictionary<string, OrderBook> _allOrderBooks = new Dictionary<string, OrderBook>();
 		protected SortedDictionary<string, SecurityStatus> _securityStatusEntries = new SortedDictionary<string, SecurityStatus>();
-		ShortPeriodTickBasedVWAP _vwapForTradingSym; // TODO: use a dictionary here too
+		ShortPeriodTickBasedVWAP _vwapForTradingSym; // TODO: use a dictionary here to calculate multiples vwaps
 
         private TradingStrategy _tradingStrategy;
 		private IWebSocketClientProtocolEngine _protocolEngine;
 		private ulong _soldAmount = 0;
 		private static volatile bool _userRequestExit = false;
 		private COOFlag _cancel_open_orders_flag = COOFlag.DEFAULT;
+        private const ulong _vwap_period_in_minutes = 5;
 
 		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine, COOFlag cancel_open_orders_flag)
         {
@@ -42,7 +43,7 @@ namespace Blinktrade
             _tradingStrategy = strategy;
 			_protocolEngine = protocolEngine;
             _tradingStrategy.tradeclient = this;
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 1);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, _vwap_period_in_minutes);
 			_cancel_open_orders_flag = cancel_open_orders_flag;
         }
 
@@ -52,7 +53,7 @@ namespace Blinktrade
 			_miniOMS = new MiniOMS();
 			_allOrderBooks.Clear();
 			_securityStatusEntries.Clear();
-			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, 1);
+			_vwapForTradingSym = new ShortPeriodTickBasedVWAP(_tradingSymbol, _vwap_period_in_minutes);
 			_tradingStrategy.Reset();
 		}
 
@@ -721,6 +722,7 @@ namespace Blinktrade
                     orderToCancel.OrdStatus = OrdStatus.PENDING_CANCEL;
                     JObject order_cancel_request = new JObject();
                     order_cancel_request["MsgType"] = "F";
+                    // order_cancel_request["OrigClOrdID"] = clOrdID; // TODO: TESTAR ISSO AQUI!!
                     order_cancel_request["ClOrdID"] = clOrdID;
                     order_cancel_request["FingerPrint"] = connection.Device.FingerPrint;
                     order_cancel_request["STUNTIP"] = connection.Device.Stuntip;
