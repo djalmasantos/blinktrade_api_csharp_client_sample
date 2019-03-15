@@ -34,7 +34,7 @@ namespace Blinktrade
 		private ulong _soldAmount = 0;
 		private static volatile bool _userRequestExit = false;
 		private COOFlag _cancel_open_orders_flag = COOFlag.DEFAULT;
-        private const ulong _vwap_period_in_minutes = 5;
+        private const ulong _vwap_period_in_minutes = 15;
 
 		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine, COOFlag cancel_open_orders_flag)
         {
@@ -1027,13 +1027,13 @@ namespace Blinktrade
 						{
 							tradeclient.ResetData(); // must reset tradeclient to refresh whole data after new connection
 							LogStatus (LogStatusType.WARN, "Trying to reconnect in 5 seconds...");
-							Task.Delay(TimeSpan.FromSeconds(5)).Wait();
+							Task.Delay(TimeSpan.FromSeconds(2)).Wait();
 						}
 					}
 					catch(System.Net.WebException ex) 
 					{
 						LogStatus (LogStatusType.ERROR, ex.Message + '\n' + ex.StackTrace);
-						Task.Delay(TimeSpan.FromSeconds(5)).Wait();
+						Task.Delay(TimeSpan.FromSeconds(2)).Wait();
 						continue;
 					}
 				}
