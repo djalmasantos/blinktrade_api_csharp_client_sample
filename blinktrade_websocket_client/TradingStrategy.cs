@@ -162,7 +162,7 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 					return;
 				}
-				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.7);
+				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.89);
 				/*
 				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
 				if (amount > 0)
@@ -254,7 +254,7 @@ namespace Blinktrade
 				// instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(1 * 1e8), // TODO: make it a parameter
+														(ulong)(3 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 			
@@ -358,11 +358,13 @@ namespace Blinktrade
 
 				if (max_price < ulong.MaxValue) {
 					min_price = min_price < ulong.MaxValue ? min_price : max_price;
-					max_price += (ulong)(0.01 * 1e8); // increment in 1 cent because min and max might be the same in a tight book range
-					if (myOrder == null || myOrder.Price > max_price || myOrder.Price < min_price) {
-						LogStatus (LogStatusType.WARN, String.Format ("[DT] must change order price not in acceptable position {0} {1} {2}", myOrder != null ? myOrder.Price : 0, max_price, min_price));
-						_buyTargetPrice = min_price + (ulong)(0.01 * 1e8);
-					} else {
+                    if (myOrder == null || myOrder.Price > max_price || myOrder.Price < min_price) {
+						//LogStatus (LogStatusType.WARN, String.Format ("[DT] must change order price not in expected position {0} {1} {2}", myOrder != null ? myOrder.Price : 0, max_price, min_price));
+						if (min_price < max_price)
+                            _buyTargetPrice = min_price + (ulong)(0.01 * 1e8); // 1 pip better than min_price
+                        else
+                            _buyTargetPrice = min_price - (ulong)(0.01 * 1e8); // 1 pip worse than min_price
+                    } else {
 						return; // don't change the order because it is still in an acceptable position
 					}
 				} else {
