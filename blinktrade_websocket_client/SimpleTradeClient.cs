@@ -34,7 +34,7 @@ namespace Blinktrade
 		private ulong _soldAmount = 0;
 		private static volatile bool _userRequestExit = false;
 		private COOFlag _cancel_open_orders_flag = COOFlag.DEFAULT;
-        private const ulong _vwap_period_in_minutes = 15;
+        private const ulong _vwap_period_in_minutes = 300;
 
 		SimpleTradeClient(int broker_id, string symbol, TradingStrategy strategy, IWebSocketClientProtocolEngine protocolEngine, COOFlag cancel_open_orders_flag)
         {

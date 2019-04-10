@@ -162,7 +162,7 @@ namespace Blinktrade
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 					return;
 				}
-				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.89);
+				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.95);
 				/*
 				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
 				if (amount > 0)
