@@ -766,7 +766,7 @@ namespace Blinktrade
                     // -- If the order is still "alive", keep the order in the MiniOMS
                     case OrdStatus.NEW:
                     case OrdStatus.PARTIALLY_FILLED:
-                    case OrdStatus.STOPPED:  // comming soon / work in progress
+                    case OrdStatus.STOPPED:  
                         break;
                     // -- If the order is "dead", remove the order from the MiniOMS
                     case OrdStatus.CANCELED:
