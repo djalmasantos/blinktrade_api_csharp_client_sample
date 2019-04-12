@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Threading;
-using System.Threading.Tasks.Dataflow;
 
 #if __MonoCS__
 using Mono.Unix;
@@ -17,7 +13,7 @@ using System.Runtime.InteropServices;
 
 namespace Blinktrade
 {
-	class SimpleTradeClient : ITradeClientService
+    class SimpleTradeClient : ITradeClientService
     {
         private int _brokerId;
         private string _tradingSymbol;
@@ -796,8 +792,8 @@ namespace Blinktrade
             Console.WriteLine("Blinktrade client websocket C# sample");
             Console.WriteLine("\nusage:\n\t" + 
 				program_name + 
-				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET|DEEP> <MAX-BTC-TRADE-SIZE>" +
-				" <BUY-TARGET-PRICE-OR-STOP-OR-MINBOOKDEPTH> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT-OR-MAXBOOKDEPTH>"+
+				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET|DEEP|TRAILING-STOP> <MAX-BTC-TRADE-SIZE>" +
+				" <BUY-TARGET-PRICE-OR-STOPPX-OR-MINBOOKDEPTH> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT-OR-MAXBOOKDEPTH>"+
 				" <CANCEL-OPEN-ORDERS-BITWISE-FLAG|0-7|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>] [<FINGER-PRINT>]");
             Console.WriteLine("\nexample:\n\t" + 
 				program_name + 
@@ -879,7 +875,15 @@ namespace Blinktrade
 						throw new ArgumentException("DEEP is currently supported only to BUY");
 					break;
 
-				default:
+                case "TRAILING":
+                case "TRAILING-STOP":
+                    if (side == OrderSide.SELL)
+                        priceType = TradingStrategy.PriceType.TRAILING_STOP;
+                    else
+                        throw new ArgumentException("TRAILING STOP must be used with SELL");
+                    break;
+
+                default:
 					show_usage(Process.GetCurrentProcess().ProcessName);
 					return;
 			}
@@ -931,14 +935,14 @@ namespace Blinktrade
 					if ((side == OrderSide.BUY || side == default(char)) && buyTargetPrice == 0)
 						throw new ArgumentException ("Invalid BUY Target Price");
 
-					if (priceType != TradingStrategy.PriceType.STOP) {
+					if (priceType != TradingStrategy.PriceType.STOP && priceType != TradingStrategy.PriceType.TRAILING_STOP) {
 						if ((side == OrderSide.SELL || side == default(char)) && sellTargetPrice == 0)
 							throw new ArgumentException ("Invalid SELL Target Price");
 
 						if (side == default(char) && buyTargetPrice >= sellTargetPrice)
 							throw new ArgumentException ("Invalid SELL and BUY Price RANGE");
 					}
-				} 
+                } 
 				catch (Exception e)
 				{
 					Console.WriteLine (e.Message);
@@ -972,15 +976,28 @@ namespace Blinktrade
 			{
 				// instantiate the tradeclient object to handle the trading stuff
 				TradingStrategy strategy = null;
-				if (priceType == TradingStrategy.PriceType.STOP) {
-					// ** this is a workaround
-					ulong stoppx = buyTargetPrice;
-					ulong limit = sellTargetPrice;
-					// validation of stoppx and limit should happen at server side
-					strategy = new TradingStrategy ( side, maxTradeSize, stoppx, limit);
-				}
-				else
-					strategy = new TradingStrategy (maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
+                if (priceType == TradingStrategy.PriceType.STOP)
+                {
+                    // ** this is a workaround
+                    ulong stoppx = buyTargetPrice;
+                    ulong limit = sellTargetPrice;
+                    // validation of stoppx and limit should happen at server side
+                    strategy = new TradingStrategy(side, maxTradeSize, stoppx, limit);
+                }
+                else if (priceType == TradingStrategy.PriceType.TRAILING_STOP)
+                {
+                    // ** this is a workaround
+                    ulong stoppx = buyTargetPrice;
+                    ulong offset = sellTargetPrice;
+                    if (stoppx <= offset) {
+                        throw new ArgumentException("Invalid STOPPX and OFFSET FOR TRAILING STOP");
+                    }
+                    strategy = new TradingStrategy(maxTradeSize, stoppx, offset);
+                }
+                else
+                {
+                    strategy = new TradingStrategy(maxTradeSize, buyTargetPrice, sellTargetPrice, side, priceType);
+                }
 
 				// instantiate the protocol engine object to handle the blinktrade messaging stuff
 				WebSocketClientProtocolEngine protocolEngine = new WebSocketClientProtocolEngine();

@@ -12,6 +12,7 @@ namespace Blinktrade
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
+        private const double _trailing_stop_limit_factor = 0.98; // 2% offset - should be a parameter in the future
 		private ulong _maxOrderSize = 0;
 
 		private ulong _buyTargetPrice = 0;
@@ -24,7 +25,7 @@ namespace Blinktrade
 		private volatile bool _enabled = true;
 
 		// ** temporary workaround to support pegged order strategy without plugins **
-		public enum PriceType { FIXED, PEGGED, STOP, MARKET_AS_MAKER, EXPLORE_BOOK_DEPTH }
+		public enum PriceType { FIXED, PEGGED, STOP, MARKET_AS_MAKER, EXPLORE_BOOK_DEPTH, TRAILING_STOP }
 		private PriceType _priceType;
 		private ulong _pegOffsetValue = 0;
 
@@ -79,8 +80,8 @@ namespace Blinktrade
 					
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
         }
-
-		public TradingStrategy(char side, ulong order_size, ulong stoppx, ulong limit_price = 0)
+		
+        public TradingStrategy(char side, ulong order_size, ulong stoppx, ulong limit_price = 0)
 		{
 			_priceType = PriceType.STOP;
 			_maxOrderSize = order_size;
@@ -91,7 +92,20 @@ namespace Blinktrade
 			_startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
 		}
 
-		public void Reset()
+        // trailing stop constructor
+        public TradingStrategy(ulong order_size, ulong stoppx, ulong offset)
+        {
+            _priceType = PriceType.TRAILING_STOP;
+            _strategySide = OrderSide.SELL;
+            _maxOrderSize = order_size;
+            _stop_price = stoppx;
+            _pegOffsetValue = offset;
+            _buyTargetPrice = 0;
+            _sellTargetPrice = 0;
+            _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
+        }
+
+        public void Reset()
 		{
 			_strategySellOrderClorid = null;
 			_strategyBuyOrderClorid = null;
@@ -156,27 +170,21 @@ namespace Blinktrade
 			Console.WriteLine ("Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
 			if (this._sell_floor == 0 && currency == "BTC")
 			{
-				// *** workaround ***
 				SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
 				if (btcusd_quote == null || btcusd_quote.LastPx == 0) {
 					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
 					return;
 				}
 				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.95);
-				/*
-				Console.WriteLine ("DEBUG Calculated[0] Sell Floor {0}", this._sell_floor );
-				if (amount > 0)
-				{
-					this._sell_floor = (ulong)(5000 / amount * 1e8);
-					Console.WriteLine ("DEBUG Calculated[1] Sell Floor {0}", this._sell_floor );
-				}
-				this._sell_floor = 0;
-				*/
-				Console.WriteLine ("DEBUG Calculated[2] Sell Floor {0}", this._sell_floor );
+				//this._sell_floor = 0;
+				Console.WriteLine ("DEBUG Calculated Sell Floor {0}", this._sell_floor );
 			}
-		}
+            // TODO: calculate the stoppx here  
+            // when stop trailing is running and there is no stoppx defined
+            // and we can check that we are in a BTCUSD bull market
+        }
 
-		private string MakeClOrdId()
+        private string MakeClOrdId()
         {
             return "BLKTRD-" + _startTime.ToString() + "-" + Interlocked.Increment(ref this._cloridSeqNum).ToString();
         }
@@ -214,26 +222,55 @@ namespace Blinktrade
 				return;
 			}
 
-			// ** temporary workaround to support market pegged sell order strategy without plugins**
-			if (_priceType == PriceType.PEGGED && _strategySide == OrderSide.SELL) 
+            // get the BTC Price in dollar
+            SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus("BITSTAMP", "BTCUSD");
+            if (btcusd_quote == null || btcusd_quote.LastPx == 0)
+            {
+                if (_priceType == PriceType.TRAILING_STOP || _priceType == PriceType.PEGGED)
+                {
+                    LogStatus(LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
+                    return;
+                }
+            }
+
+            // get the dollar price
+            SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus("UOL", "USDBRL"); // use USDBRT for the turism quote
+            if (usd_official_quote == null || usd_official_quote.BestAsk == 0)
+            {
+                if (_priceType == PriceType.TRAILING_STOP || _priceType == PriceType.PEGGED)
+                {
+                    LogStatus(LogStatusType.WARN, "UOL:USDBRT not available");
+                    return;
+                }
+            }
+
+            if (_priceType == PriceType.TRAILING_STOP && _strategySide == OrderSide.SELL)
+            {
+                if ( btcusd_quote.LastPx <= _stop_price)
+                {
+                    // trigger the stop when the price goes down
+                    ulong stop_price_floor = (ulong)(_stop_price * _trailing_stop_limit_factor * usd_official_quote.BestAsk / 1e8);
+                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL );
+                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, default(char));
+                    // change the strategy so that the bot might negociate the leaves qty
+                    _priceType = PriceType.PEGGED;
+                    _sell_floor = (ulong)(stop_price_floor * _trailing_stop_limit_factor);
+                }
+                else
+                {
+                    // adjust the stop when the price goes up
+                    ulong last_ref_quote = _stop_price + _pegOffsetValue;
+                    if (btcusd_quote.LastPx > last_ref_quote)
+                        _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                }
+            }
+
+            // ** temporary workaround to support market pegged sell order strategy without plugins**
+            if (_priceType == PriceType.PEGGED && _strategySide == OrderSide.SELL) 
 			{
 				// make the price float according to the MID Price 
-				/*
-				// requires the Security List for the trading symbol
-				SecurityStatus status = _tradeclient.GetSecurityStatus ("BLINK", symbol);
-				if (status == null)
-				{
-					LogStatus(
-						LogStatusType.WARN,
-						String.Format(
-							"Waiting Security Status BLINK:{0} to run Pegged strategy",
-							symbol)
-					);
-					return;
-				}
-				*/
-
-				// check the remaining qty that can still be sold
+				
+                // check the remaining qty that can still be sold
 				ulong theSoldAmount = _tradeclient.GetSoldAmount();
 				if (theSoldAmount < _maxAmountToSell) 
 				{
@@ -265,16 +302,6 @@ namespace Blinktrade
 				ulong midprice = (ulong)((orderBook.BestBid.Price + maxPriceToBuyXBTC + marketPrice) / 3);
 				_sellTargetPrice = midprice + _pegOffsetValue;
 
-				// get the dollar price
-				SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus ("UOL", "USDBRT"); // use USDBRT for the turism quote
-				if (usd_official_quote == null || usd_official_quote.BestAsk == 0) {
-					LogStatus (LogStatusType.WARN, "UOL:USDBRT not available");
-				}
-				// get the BTC Price in dollar
-				SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
-				if (btcusd_quote == null || btcusd_quote.LastPx == 0) {
-					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
-				}
 				// calculate the selling floor must be at least the price of the BTC in USD
 				ulong floor = 0;
 				if ( this._sell_floor > 0 ) {
@@ -312,7 +339,7 @@ namespace Blinktrade
 				return;
 			}
 
-			// run the strategy
+			// run the strategy that change orders in the book
 			if (_maxOrderSize > 0)
             {
                 webSocketConnection.EnableTestRequest = false;
