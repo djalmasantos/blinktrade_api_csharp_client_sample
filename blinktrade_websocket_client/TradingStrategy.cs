@@ -609,7 +609,7 @@ namespace Blinktrade
                                     orderToReplace.ClOrdID,
                                     side)
                             );
-                        return; // wait the confirmation of the NEW or CANCEL
+                        return; // wait the confirmation of the NEW or CANCEL (TODO: create a timeout)
 					case OrdStatus.NEW:
 					case OrdStatus.PARTIALLY_FILLED:
 	                    // cancel the order to replace it						
@@ -617,7 +617,8 @@ namespace Blinktrade
 							return; // order is essencially the same and should not be replaced
 					
 						_tradeclient.CancelOrderByClOrdID (webSocketConnection, orderToReplace.ClOrdID);
-						break;
+                        break;
+                        //return;
 
 	                default:
 	                break;
@@ -658,11 +659,15 @@ namespace Blinktrade
             }
         }
 
-        private ulong calculateOrderQty(string symbol, char side, ulong price = 0)
+        private ulong calculateOrderQty(string symbol, char side, ulong price = 0) 
         {
             // check the updated balance to gather remaining qty
-            // don't need to bother with locked balance because we keep only 1 alive order at each side of the book
             ulong result = 0;
+            ulong self_locked_amount = 0;
+
+            string existingClorId = side == OrderSide.BUY ? this._strategyBuyOrderClorid : this._strategySellOrderClorid;
+            var activeOrder = _tradeclient.miniOMS.GetOrderByClOrdID(existingClorId);
+
             switch (side)
             {
                 case OrderSide.BUY:
@@ -670,7 +675,14 @@ namespace Blinktrade
                     if (price > 0)
                     {
                         string fiatCurrency = symbol.Substring(3);
-                        ulong fiatBalance = _tradeclient.GetBalance(fiatCurrency);
+                        ulong fiatTotalBalance = _tradeclient.GetBalance(fiatCurrency);
+                        ulong fiatLockedBalance = tradeclient.GetBalance(fiatCurrency + "_locked");
+                        Debug.Assert(fiatTotalBalance >= fiatLockedBalance);
+                        if (activeOrder != null && (activeOrder.OrdStatus == OrdStatus.NEW || activeOrder.OrdStatus == OrdStatus.PARTIALLY_FILLED)) {
+                            self_locked_amount = (ulong)((double)activeOrder.LeavesQty * activeOrder.Price / 1e8);
+                        }
+                        Debug.Assert(fiatLockedBalance >= self_locked_amount);
+                        ulong fiatBalance = fiatTotalBalance - fiatLockedBalance + self_locked_amount;
                         ulong max_allowed_qty = (ulong)((double)fiatBalance / price * 1e8);
                         result = _maxOrderSize < max_allowed_qty ? _maxOrderSize : max_allowed_qty;
                     }
@@ -678,8 +690,15 @@ namespace Blinktrade
                 case OrderSide.SELL:
                     string cryptoCurrency = symbol.Substring(0, 3);
                     Debug.Assert(cryptoCurrency == "BTC");
-                    ulong crytoBalance = _tradeclient.GetBalance(cryptoCurrency);
-                    result = _maxOrderSize < crytoBalance ? _maxOrderSize : crytoBalance;
+                    ulong cryptoTotalBalance = _tradeclient.GetBalance(cryptoCurrency);
+                    ulong cryptoLockedBalance = tradeclient.GetBalance(cryptoCurrency + "_locked");
+                    Debug.Assert(cryptoTotalBalance >= cryptoLockedBalance);
+                    if (activeOrder != null && (activeOrder.OrdStatus == OrdStatus.NEW || activeOrder.OrdStatus == OrdStatus.PARTIALLY_FILLED)) {
+                        self_locked_amount = activeOrder.LeavesQty;
+                    }
+                    Debug.Assert(cryptoLockedBalance >= self_locked_amount);
+                    ulong cryptoBalance = cryptoTotalBalance - cryptoLockedBalance + self_locked_amount;
+                    result = _maxOrderSize < cryptoBalance ? _maxOrderSize : cryptoBalance;
                     break;
                 default:
                     break;
