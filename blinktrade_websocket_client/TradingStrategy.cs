@@ -277,6 +277,7 @@ namespace Blinktrade
                         Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
                     }
                 }
+                return;
             }
 
             // ** temporary workaround to support market pegged sell order strategy without plugins**
