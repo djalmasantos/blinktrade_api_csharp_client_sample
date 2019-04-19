@@ -12,7 +12,7 @@ namespace Blinktrade
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
-        private const double _trailing_stop_limit_factor = 0.98; // 2% offset - should be a parameter in the future
+        private const double _trailing_stop_limit_factor = 0.99; // 1% offset - should be a parameter in the future
 		private ulong _maxOrderSize = 0;
 
 		private ulong _buyTargetPrice = 0;
@@ -180,6 +180,7 @@ namespace Blinktrade
                 if (_priceType == PriceType.TRAILING_STOP && _stop_price == 0)
                 {
                     _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                    Console.WriteLine("DEBUG Calculated Stop Price {0}", this._stop_price);
                     // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
                 }
                 else if (_priceType == PriceType.PEGGED && this._sell_floor == 0)

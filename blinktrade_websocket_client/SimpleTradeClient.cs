@@ -989,7 +989,7 @@ namespace Blinktrade
                     // ** this is a workaround
                     ulong stoppx = buyTargetPrice;
                     ulong offset = sellTargetPrice;
-                    if (stoppx <= offset) {
+                    if ((stoppx > 0 && stoppx <= offset) || offset == 0) {
                         throw new ArgumentException("Invalid STOPPX and OFFSET FOR TRAILING STOP");
                     }
                     strategy = new TradingStrategy(maxTradeSize, stoppx, offset);
