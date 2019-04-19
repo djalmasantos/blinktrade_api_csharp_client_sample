@@ -168,20 +168,27 @@ namespace Blinktrade
 		public void OnDepositRefresh(string deposit_id, string currency, ulong amount, int status, string state)
 		{
 			Console.WriteLine ("Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
-			if (this._sell_floor == 0 && currency == "BTC")
-			{
-				SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus ("BITSTAMP", "BTCUSD");
-				if (btcusd_quote == null || btcusd_quote.LastPx == 0) {
-					LogStatus (LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
-					return;
-				}
-				this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.95);
-				//this._sell_floor = 0;
-				Console.WriteLine ("DEBUG Calculated Sell Floor {0}", this._sell_floor );
-			}
-            // TODO: calculate the stoppx here  
-            // when stop trailing is running and there is no stoppx defined
-            // and we can check that we are in a BTCUSD bull market
+            SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus("BITSTAMP", "BTCUSD");
+            if (btcusd_quote == null || btcusd_quote.LastPx == 0)
+            {
+                LogStatus(LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
+                return;
+            }
+
+            if (_strategySide == OrderSide.SELL && currency == "BTC")
+            {
+                if (_priceType == PriceType.TRAILING_STOP && _stop_price == 0)
+                {
+                    _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                    // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
+                }
+                else if (_priceType == PriceType.PEGGED && this._sell_floor == 0)
+                {
+
+                    this._sell_floor = (ulong)(btcusd_quote.LastPx * 3.95); // TODO: use the bitcoin dollar here
+                    Console.WriteLine("DEBUG Calculated Sell Floor {0}", this._sell_floor);
+                }
+            }
         }
 
         private string MakeClOrdId()
@@ -239,20 +246,21 @@ namespace Blinktrade
             {
                 if (_priceType == PriceType.TRAILING_STOP || _priceType == PriceType.PEGGED)
                 {
-                    LogStatus(LogStatusType.WARN, "UOL:USDBRT not available");
+                    LogStatus(LogStatusType.WARN, "UOL:USDBRL not available");
                     return;
                 }
             }
 
-            if (_priceType == PriceType.TRAILING_STOP && _strategySide == OrderSide.SELL)
+            if (_priceType == PriceType.TRAILING_STOP && _strategySide == OrderSide.SELL && _stop_price > 0)
             {
                 if ( btcusd_quote.LastPx <= _stop_price)
                 {
                     // trigger the stop when the price goes down
                     ulong stop_price_floor = (ulong)(_stop_price * _trailing_stop_limit_factor * usd_official_quote.BestAsk / 1e8);
                     ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL );
+                    // execute teh order as a taker
                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, default(char));
-                    // change the strategy so that the bot might negociate the leaves qty
+                    // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor
                     _priceType = PriceType.PEGGED;
                     _sell_floor = (ulong)(stop_price_floor * _trailing_stop_limit_factor);
                 }
