@@ -259,18 +259,23 @@ namespace Blinktrade
                     // trigger the stop when the price goes down
                     ulong stop_price_floor = (ulong)(_stop_price * _trailing_stop_limit_factor * usd_official_quote.BestAsk / 1e8);
                     ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL );
+                    Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
                     // execute teh order as a taker
                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, default(char));
                     // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor
                     _priceType = PriceType.PEGGED;
                     _sell_floor = (ulong)(stop_price_floor * _trailing_stop_limit_factor);
+                    Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
                 }
                 else
                 {
                     // adjust the stop when the price goes up
                     ulong last_ref_quote = _stop_price + _pegOffsetValue;
                     if (btcusd_quote.LastPx > last_ref_quote)
+                    {
                         _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                        Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
+                    }
                 }
             }
 
