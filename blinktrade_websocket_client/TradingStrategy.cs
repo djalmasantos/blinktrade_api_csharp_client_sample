@@ -12,7 +12,7 @@ namespace Blinktrade
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
-        private const double _trailing_stop_limit_factor = 0.99; // 1% offset - should be a parameter in the future
+        private const double _trailing_stop_limit_factor = 0.995; // 0.5% bellow BTCUSD quote - should be a parameter in the future
 		private ulong _maxOrderSize = 0;
 
 		private ulong _buyTargetPrice = 0;
@@ -260,10 +260,13 @@ namespace Blinktrade
                     ulong stop_price_floor = (ulong)(_stop_price * _trailing_stop_limit_factor * usd_official_quote.BestAsk / 1e8);
                     ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL );
                     Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
-                    // execute teh order as a taker
+                    // execute the order as taker
                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, default(char));
+                    // immediately cancel the leaves qty for the automatic adjustment of the order to the market price
+                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
                     // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor
                     _priceType = PriceType.PEGGED;
+                    //_maxAmountToSell = ??? // TODO: "ice berg control" with _max_amount_to_sell and tradeclient.GetSoldAmount
                     _sell_floor = (ulong)(stop_price_floor * _trailing_stop_limit_factor);
                     Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
                 }
@@ -306,7 +309,7 @@ namespace Blinktrade
 				// instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
-														(ulong)(3 * 1e8), // TODO: make it a parameter
+														(ulong)(1 * 1e8), // TODO: make it a parameter
 														_tradeclient.UserId);
 				
 			
