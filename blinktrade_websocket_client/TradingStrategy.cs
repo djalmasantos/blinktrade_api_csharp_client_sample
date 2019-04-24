@@ -544,7 +544,6 @@ namespace Blinktrade
 				return;
 			}
 
-			//OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
             if (bestOffer != null)
             {
                 if (bestOffer.UserId != _tradeclient.UserId)
@@ -553,7 +552,6 @@ namespace Blinktrade
                     ulong sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
                     if (sellPrice >= _sellTargetPrice)
                     {
-						//OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
 						if (sellPrice > bestBid.Price) {
 							replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
 						}
