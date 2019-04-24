@@ -171,7 +171,7 @@ namespace Blinktrade
             SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus("BITSTAMP", "BTCUSD");
             if (btcusd_quote == null || btcusd_quote.LastPx == 0)
             {
-                LogStatus(LogStatusType.WARN, "BITSTAMP:BTCUSD not available");
+                LogStatus(LogStatusType.ERROR, "BITSTAMP:BTCUSD not available");
                 return;
             }
 
@@ -263,7 +263,7 @@ namespace Blinktrade
                     // execute the order as taker
                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
                     // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
-                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true);
+                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                     // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                     _priceType = PriceType.PEGGED;
                     //_maxAmountToSell = _maxOrderSize; // TODO: make sure we need "ice berg control" here with tradeclient.GetSoldAmount
