@@ -645,7 +645,7 @@ namespace Blinktrade
 								string client_order_id, 
 								char order_type = '2', 
 								ulong stop_price = 0,
-								char execInst = default(char))
+								char execInst = ExecInst.DEFAULT)
         {
             // add pending new order to the OMS
             MiniOMS.Order orderToSend = new MiniOMS.Order();
@@ -687,7 +687,7 @@ namespace Blinktrade
 			}
             new_order_single["OrderQty"] = orderToSend.OrderQty;
             new_order_single["BrokerID"] = broker_id;
-            if (execInst != default(char)) {
+            if (execInst != ExecInst.DEFAULT) {
                 new_order_single["ExecInst"] = execInst.ToString();
             }
             new_order_single["FingerPrint"] = connection.Device.FingerPrint;
@@ -708,12 +708,12 @@ namespace Blinktrade
 			connection.SendMessage(order_cancel_request.ToString());
         }
 
-        public bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID)
+        public bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID, bool force_unconfirmed_order_cancellation = false)
         {
             MiniOMS.Order orderToCancel = _miniOMS.GetOrderByClOrdID(clOrdID);
             if (orderToCancel != null)
             {
-				if (orderToCancel.OrdStatus == OrdStatus.NEW || orderToCancel.OrdStatus == OrdStatus.PARTIALLY_FILLED)
+				if (orderToCancel.OrdStatus == OrdStatus.NEW || orderToCancel.OrdStatus == OrdStatus.PARTIALLY_FILLED || force_unconfirmed_order_cancellation)
                 {
                     orderToCancel.OrdStatus = OrdStatus.PENDING_CANCEL;
                     JObject order_cancel_request = new JObject();
@@ -834,7 +834,7 @@ namespace Blinktrade
                     side = OrderSide.SELL;
                     break;
                 case "BOTH":
-                    side = default(char);
+                    side = default(char); // TODO: add DEFAULT to side enum
                     break;
                 default:
                     show_usage(Process.GetCurrentProcess().ProcessName);

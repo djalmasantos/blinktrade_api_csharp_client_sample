@@ -11,7 +11,7 @@ namespace Blinktrade
         private string _strategyBuyOrderClorid = null;
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
-		private const ulong _maxAmountToSell = (ulong)(10 * 1e8); // TODO: make it an optional parameter
+		private ulong _maxAmountToSell = (ulong)(1000 * 1e8); // TODO: make it an optional parameter
         private const double _trailing_stop_limit_factor = 0.995; // 0.5% bellow BTCUSD quote - should be a parameter in the future
 		private ulong _maxOrderSize = 0;
 
@@ -257,17 +257,17 @@ namespace Blinktrade
                 if ( btcusd_quote.LastPx <= _stop_price)
                 {
                     // trigger the stop when the price goes down
-                    ulong stop_price_floor = (ulong)(_stop_price * _trailing_stop_limit_factor * usd_official_quote.BestAsk / 1e8);
-                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL );
+                    ulong stop_price_floor = (ulong)(Math.Round(_stop_price * _trailing_stop_limit_factor / 1e8 * usd_official_quote.BestAsk / 1e8, 2) * 1e8);
+                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
                     Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
                     // execute the order as taker
-                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, default(char));
-                    // immediately cancel the leaves qty for the automatic adjustment of the order to the market price
-                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
-                    // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor
+                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
+                    // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
+                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true);
+                    // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                     _priceType = PriceType.PEGGED;
-                    //_maxAmountToSell = ??? // TODO: "ice berg control" with _max_amount_to_sell and tradeclient.GetSoldAmount
-                    _sell_floor = (ulong)(stop_price_floor * _trailing_stop_limit_factor);
+                    //_maxAmountToSell = _maxOrderSize; // TODO: make sure we need "ice berg control" here with tradeclient.GetSoldAmount
+                    _sell_floor = (ulong) Math.Round(stop_price_floor * _trailing_stop_limit_factor, 2);
                     Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
                 }
                 else
@@ -654,7 +654,7 @@ namespace Blinktrade
                                     orderToReplace.ClOrdID,
                                     side)
                             );
-                        return; // wait the confirmation of the NEW or CANCEL (TODO: create a timeout)
+                        return; // wait the confirmation of the NEW or CANCEL (TODO: create a timeout to avoid ad-eternum wait)
 					case OrdStatus.NEW:
 					case OrdStatus.PARTIALLY_FILLED:
 	                    // cancel the order to replace it						

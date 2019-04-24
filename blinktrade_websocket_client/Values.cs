@@ -36,6 +36,7 @@ namespace Blinktrade
 
     public class ExecInst 
     {
+        public const char DEFAULT = default(char);
         public const char PARTICIPATE_DONT_INITIATE = '6';
     }
 
@@ -47,4 +48,5 @@ namespace Blinktrade
 		CANCEL_ON_DISCONNECT = 4,
 		DEFAULT = CANCEL_ON_LOGON | CANCEL_ON_APP_EXIT | CANCEL_ON_DISCONNECT
 	};
+
 }
