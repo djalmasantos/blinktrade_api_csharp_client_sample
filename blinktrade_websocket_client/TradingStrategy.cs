@@ -12,7 +12,7 @@ namespace Blinktrade
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private ulong _maxAmountToSell = (ulong)(1000 * 1e8); // TODO: make it an optional parameter
-        private const double _trailing_stop_limit_factor = 0.995; // 0.5% bellow BTCUSD quote - should be a parameter in the future
+        private double _stop_price_adjustment_factor = 1.005; // should be a parameter in the future
 		private ulong _maxOrderSize = 0;
 
 		private ulong _buyTargetPrice = 0;
@@ -257,7 +257,7 @@ namespace Blinktrade
                 if ( btcusd_quote.LastPx <= _stop_price)
                 {
                     // trigger the stop when the price goes down
-                    ulong stop_price_floor = (ulong)(Math.Round(_stop_price * _trailing_stop_limit_factor / 1e8 * usd_official_quote.BestAsk / 1e8, 2) * 1e8);
+                    ulong stop_price_floor = (ulong)(Math.Round(_stop_price * _stop_price_adjustment_factor / 1e8 * usd_official_quote.BestAsk / 1e8, 2) * 1e8);
                     ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
                     Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
                     // execute the order as taker
@@ -267,7 +267,7 @@ namespace Blinktrade
                     // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                     _priceType = PriceType.PEGGED;
                     //_maxAmountToSell = _maxOrderSize; // TODO: make sure we need "ice berg control" here with tradeclient.GetSoldAmount
-                    _sell_floor = (ulong) Math.Round(stop_price_floor * _trailing_stop_limit_factor, 2);
+                    _sell_floor = (ulong) Math.Round(stop_price_floor * _stop_price_adjustment_factor, 2);
                     Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
                 }
                 else
