@@ -552,7 +552,8 @@ namespace Blinktrade
                     ulong sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
                     if (sellPrice >= _sellTargetPrice)
                     {
-						if (sellPrice > bestBid.Price) {
+						// TODO: Become a Taker when the spread is "small" (i.e for stop trailing converted to pegged or for any pegged)
+                        if (sellPrice > bestBid.Price) {
 							replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
 						}
 						else 
