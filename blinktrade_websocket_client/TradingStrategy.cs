@@ -12,8 +12,8 @@ namespace Blinktrade
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(1000 * 1e8); // TODO: make it an optional parameter
-        private const double _market_price_adjustment_factor = 1.01; // should be a parameter in the future
-        private const double _stop_price_adjustment_factor = 0.005;  // should be a parameter in the future
+        private const double _market_price_adjustment_factor = 1.01; // 1% above - should be a parameter in the future
+        private const double _stop_price_adjustment_factor = 0.995;  // 0.5% bellow - should be a parameter in the future
 
         private ulong _maxOrderSize = 0;
 
@@ -230,7 +230,7 @@ namespace Blinktrade
 
 		}
 
-		/*abstract*/ public void runStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
+		/*abstract*/public void runStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
         {
             // Run the strategy to try to have an order on at least one side of the book according to fixed price range 
 			// but never executing as a taker
