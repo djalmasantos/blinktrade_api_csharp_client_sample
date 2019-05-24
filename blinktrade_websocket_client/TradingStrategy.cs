@@ -270,14 +270,16 @@ namespace Blinktrade
                     ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
                     ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
                     Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
+                    // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
+                    availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
                     // execute the order as taker
                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
                     // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
                     _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                     // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
-                    _priceType = PriceType.PEGGED;
+                    _priceType = PriceType.MARKET_AS_MAKER;
                     _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                    Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
+                    Console.WriteLine("DEBUG Changed Strategy to MARKET AS MAKER with SELL_FLOOR=[{0}]", _sell_floor);
                 }
                 else
                 {
@@ -538,8 +540,8 @@ namespace Blinktrade
 				} else if (bestOffer != null) {
 					sellPrice = bestOffer.Price;
 				}
-				if (sellPrice > 0) {
-					replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+				if (sellPrice > 0 && sellPrice >= _sell_floor) {
+                    replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
 				}
 				return;
 			}
