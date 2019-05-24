@@ -262,33 +262,36 @@ namespace Blinktrade
                 }
             }
 
-            if (_priceType == PriceType.TRAILING_STOP && _strategySide == OrderSide.SELL && _stop_price > 0)
+            if (_priceType == PriceType.TRAILING_STOP)
             {
-                if ( btcusd_quote.LastPx <= _stop_price)
+                if (_strategySide == OrderSide.SELL && _stop_price > 0)
                 {
-                    // trigger the stop when the price goes down
-                    ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
-                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                    Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
-                    // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
-                    availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
-                    // execute the order as taker
-                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
-                    // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
-                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
-                    // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
-                    _priceType = PriceType.MARKET_AS_MAKER;
-                    _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                    Console.WriteLine("DEBUG Changed Strategy to MARKET AS MAKER with SELL_FLOOR=[{0}]", _sell_floor);
-                }
-                else
-                {
-                    // adjust the stop when the price goes up
-                    ulong last_ref_quote = _stop_price + _pegOffsetValue;
-                    if (btcusd_quote.LastPx > last_ref_quote)
+                    if (btcusd_quote.LastPx <= _stop_price)
                     {
-                        _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
-                        Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
+                        // trigger the stop when the price goes down
+                        ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
+                        ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                        Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
+                        // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
+                        availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
+                        // execute the order as taker
+                        sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
+                        // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
+                        _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                        // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
+                        _priceType = PriceType.MARKET_AS_MAKER;
+                        _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
+                        Console.WriteLine("DEBUG Changed Strategy to MARKET AS with SELL_FLOOR=[{0}]", _sell_floor);
+                    }
+                    else
+                    {
+                        // adjust the stop when the price goes up
+                        ulong last_ref_quote = _stop_price + _pegOffsetValue;
+                        if (btcusd_quote.LastPx > last_ref_quote)
+                        {
+                            _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                            Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
+                        }
                     }
                 }
                 return;
