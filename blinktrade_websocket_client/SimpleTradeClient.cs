@@ -792,8 +792,8 @@ namespace Blinktrade
             Console.WriteLine("Blinktrade client websocket C# sample");
             Console.WriteLine("\nusage:\n\t" + 
 				program_name + 
-				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET|DEEP|TRAILING-STOP> <MAX-BTC-TRADE-SIZE>" +
-				" <BUY-TARGET-PRICE-OR-STOPPX-OR-MINBOOKDEPTH> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT-OR-MAXBOOKDEPTH>"+
+				" <URL> <BROKER-ID> <SYMBOL> <BUY|SELL|BOTH> <DEFAULT|FIXED|FLOAT|STOP|MARKET|DEEP|TRAILING-STOP> <MAX-BTC-TRADE-SIZE-OR-TRAILING-STOP-OFFSET>" +
+                " <BUY-TARGET-PRICE-OR-STOPPX-OR-MINBOOKDEPTH> <SELL-TARGET-PRICE-OR-PEGGED_PRICE_OFFSET-OR-STOPLIMIT-OR-MAXBOOKDEPTH-OR-TRAILING-STOP-INIT-PX>" +
 				" <CANCEL-OPEN-ORDERS-BITWISE-FLAG|0-7|> <USERNAME> <PASSWORD> [<SECOND-FACTOR>] [<FINGER-PRINT>]");
             Console.WriteLine("\nexample:\n\t" + 
 				program_name + 
@@ -988,11 +988,13 @@ namespace Blinktrade
                 {
                     // ** this is a workaround
                     ulong stoppx = buyTargetPrice;
-                    ulong offset = sellTargetPrice;
+                    ulong entry_price = sellTargetPrice;
+                    ulong offset = maxTradeSize;
+                    maxTradeSize = ulong.MaxValue;
                     if ((stoppx > 0 && stoppx <= offset) || offset == 0) {
                         throw new ArgumentException("Invalid STOPPX and OFFSET FOR TRAILING STOP");
                     }
-                    strategy = new TradingStrategy(maxTradeSize, stoppx, offset);
+                    strategy = new TradingStrategy(maxTradeSize, entry_price, stoppx, offset);
                 }
                 else
                 {

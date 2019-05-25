@@ -33,6 +33,7 @@ namespace Blinktrade
 
 		// stop exclusive attributes
 		private ulong _stop_price = 0;
+        private ulong _trailing_stop_entry_price = 0; 
 
 		// another workaround for the float sell strategy
 		private ulong _sell_floor = 0;
@@ -95,11 +96,12 @@ namespace Blinktrade
 		}
 
         // trailing stop constructor
-        public TradingStrategy(ulong order_size, ulong stoppx, ulong offset)
+        public TradingStrategy(ulong order_size, ulong init_price, ulong stoppx, ulong offset)
         {
             _priceType = PriceType.TRAILING_STOP;
             _strategySide = OrderSide.SELL;
             _maxOrderSize = order_size;
+            _trailing_stop_entry_price = init_price;
             _stop_price = stoppx;
             _pegOffsetValue = offset;
             _buyTargetPrice = 0;
@@ -169,7 +171,7 @@ namespace Blinktrade
 
 		public void OnDepositRefresh(string deposit_id, string currency, ulong amount, int status, string state)
 		{
-			Console.WriteLine ("Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
+			Console.WriteLine ("DEBUG Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
             SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus("BITSTAMP", "BTCUSD");
             if (btcusd_quote == null || btcusd_quote.LastPx == 0)
             {
@@ -189,8 +191,9 @@ namespace Blinktrade
             {
                 if (_priceType == PriceType.TRAILING_STOP && _stop_price == 0)
                 {
+                    _trailing_stop_entry_price = btcusd_quote.LastPx;
                     _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
-                    Console.WriteLine("DEBUG Calculated Stop Price {0}", this._stop_price);
+                    Console.WriteLine("DEBUG Trailing Stop EntryPrice={0} and StopPrice={1}", _trailing_stop_entry_price, _stop_price);
                     // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
                 }
                 else if (_priceType == PriceType.PEGGED && this._sell_floor == 0)
@@ -279,19 +282,40 @@ namespace Blinktrade
                         // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
                         _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
-                        _priceType = PriceType.MARKET_AS_MAKER;
+                        _priceType = PriceType.PEGGED;
+                        _maxOrderSize = _minOrderSize * 100;
                         _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
                         Console.WriteLine("DEBUG Changed Strategy to MARKET AS with SELL_FLOOR=[{0}]", _sell_floor);
                     }
                     else
                     {
-                        // adjust the stop when the price goes up
-                        ulong last_ref_quote = _stop_price + _pegOffsetValue;
-                        if (btcusd_quote.LastPx > last_ref_quote)
+                        // when the market goes up - adjust the stop in case of a new maximum price in BTCUSD
+                        ulong last_max_price = _stop_price + _pegOffsetValue;
+                        if (btcusd_quote.LastPx > last_max_price)
                         {
                             _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
                             Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
+
                         }
+                        // and check we should make profit
+                        if (_trailing_stop_entry_price > 0) {
+                            ulong acceptable_profit_price = _trailing_stop_entry_price + _pegOffsetValue;
+                            if (btcusd_quote.LastPx >= acceptable_profit_price)
+                            {
+                                Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}]", btcusd_quote.LastPx);
+                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
+                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                                availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
+                                // execute the order as taker and emulate IOC instruction
+                                sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
+                                _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                                // change the strategy so that the bot might negociate the leaves qty as a maker
+                                _priceType = PriceType.PEGGED;
+                                _maxOrderSize = _minOrderSize * 100;
+                                Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
+                            }
+                        }
+                       
                     }
                 }
                 return;
