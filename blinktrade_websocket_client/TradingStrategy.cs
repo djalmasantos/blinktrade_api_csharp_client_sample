@@ -310,9 +310,10 @@ namespace Blinktrade
                                 sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
                                 _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
-                                _priceType = PriceType.PEGGED;
+                                _priceType = PriceType.FIXED;
+                                _sellTargetPrice = _sell_floor;
                                 _maxOrderSize = _minOrderSize * 100;
-                                Console.WriteLine("DEBUG Changed Strategy to PEGGED with SELL_FLOOR=[{0}]", _sell_floor);
+                                Console.WriteLine("DEBUG Changed Strategy to FIXED with SELL_TARGET_PRICE=[{0}]", _sell_floor);
                             }
                         }
                        
@@ -502,7 +503,7 @@ namespace Blinktrade
                         
 						if (this._priceType != PriceType.EXPLORE_BOOK_DEPTH) {
 							// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
-							if (position > 5 + 1 && orderBook.DoesAmountExceedsLimit (
+							if (position > 15 + 1 && orderBook.DoesAmountExceedsLimit (
 								    OrderBook.OrdSide.BUY,
 								    position - 1, (ulong)(20 * 1e8))) {
 								_tradeclient.CancelOrderByClOrdID (webSocketConnection, _strategyBuyOrderClorid);
@@ -513,8 +514,9 @@ namespace Blinktrade
 						var pivotOrder = buyside[position];
                         if (pivotOrder.UserId == _tradeclient.UserId)
                         {
+                            // TODO: make sure the order is the same or from another client instance
                             // ordem ja e minha : pega + recursos disponiveis e cola no preco no vizinho se já nao estiver
-							ulong price_delta = buyside.Count > position + 2 ? pivotOrder.Price - buyside[position+1].Price : 0;
+                            ulong price_delta = buyside.Count > position + 2 ? pivotOrder.Price - buyside[position+1].Price : 0;
                             ulong newBuyPrice = (price_delta > (ulong)(0.01 * 1e8) ?
                                             pivotOrder.Price - price_delta + (ulong)(0.01 * 1e8) :
                                             pivotOrder.Price);
@@ -534,6 +536,7 @@ namespace Blinktrade
                 }
                 else 
                 {
+                    // TODO: make sure the order is the same or from another client instance
                     // check and replace order to get closer to the order in the second position
                     List<OrderBook.Order> buyside = _tradeclient.GetOrderBook(symbol).GetBidOrders();
                     ulong price_delta = buyside.Count > 1 ? buyside[0].Price - buyside[1].Price : 0;
@@ -596,8 +599,8 @@ namespace Blinktrade
 						}
                     }
                     else
-                    { 
-						// cannot fight for the first position thus try to find a visible position in the book
+                    {
+                        // cannot fight for the first position thus try to find a visible position in the book
                         OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
                         List<OrderBook.Order> sellside = orderBook.GetOfferOrders();
                         int i = sellside.BinarySearch( 
@@ -608,18 +611,19 @@ namespace Blinktrade
 						Debug.Assert (position > 0);
                         
 						// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
-						if (position > 5+1 && orderBook.DoesAmountExceedsLimit (
+						if (position > 15+1 && orderBook.DoesAmountExceedsLimit (
 							OrderBook.OrdSide.SELL,
-							position - 1, (ulong)(10 * 1e8))) 
+							position - 1, (ulong)(20 * 1e8))) 
 						{
 							_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
 							return;
 						}
 
 						var pivotOrder = sellside[position];
-                        if (pivotOrder.UserId == _tradeclient.UserId)
+                        if (pivotOrder.UserId == _tradeclient.UserId) 
                         {
-							// ordem ja e minha : pega + recursos disponiveis e cola no preco no vizinho se já nao estiver
+                            // TODO: make sure the order is the same or from another client instance
+                            // ordem ja e minha : pega + recursos disponiveis e cola no preco do vizinho se já nao estiver
                             ulong price_delta = sellside[position+1].Price - pivotOrder.Price;
                             ulong newSellPrice = (price_delta > (ulong)(0.01 * 1e8) ?
                                             pivotOrder.Price + price_delta - (ulong)(0.01 * 1e8) :
@@ -640,6 +644,7 @@ namespace Blinktrade
                 }
                 else 
                 {
+                    // TODO: make sure the order is the same or from another client instance
                     // check and replace the order to get closer to the order in the second position and gather more available funds
                     List<OrderBook.Order> sellside = _tradeclient.GetOrderBook(symbol).GetOfferOrders();
                     ulong price_delta = sellside.Count > 1 ? sellside[1].Price - sellside[0].Price : 0;
