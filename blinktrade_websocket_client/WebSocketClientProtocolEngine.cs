@@ -201,7 +201,7 @@ namespace Blinktrade
 					if (msg.GetValue("Volume") == null || msg.GetValue("Volume").Type == JTokenType.Null)
                     {
 						if (msg.GetValue("AvgPx") != null && msg.GetValue("AvgPx").Type != JTokenType.Null && msg.GetValue("AvgPx").Value<ulong>() > 0)
-							msg["Volume"] = (ulong)(msg["CumQty"].Value<ulong>() * (float)(msg["AvgPx"].Value<ulong>() / 1e8));
+							msg["Volume"] = (ulong)(Math.Round(msg["CumQty"].Value<ulong>() / 1e8 * msg["AvgPx"].Value<ulong>() / 1e8, 2) * 1e8);
                         else
                             msg["Volume"] = 0;
                     }
