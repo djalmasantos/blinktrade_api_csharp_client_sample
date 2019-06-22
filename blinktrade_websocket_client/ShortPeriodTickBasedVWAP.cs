@@ -53,10 +53,17 @@ namespace Blinktrade
 
 		public void pushTrade(Trade trade)
 		{
-			if ( trade.symbol == this._symbol )
+            if ( trade.symbol == this._symbol ) 
 			{
-				// update the cumulative values
-				_cum_price_mul_size += ((double)(trade.price / 1e8) * (double)(trade.size / 1e8));
+                // TODO: prevent reinsertion of trades
+                /*
+                if (_lastTrades.Count > 0 && trade.tradeID < _lastTrades[_lastTrades.Count - 1].tradeID) {
+                    return;
+                }
+                */
+           
+                // update the cumulative values
+                _cum_price_mul_size += ((double)(trade.price / 1e8) * (double)(trade.size / 1e8));
 				_cum_volume += (double)(trade.size / 1e8);
 
 				// purge the old trades based in the desired vwap period

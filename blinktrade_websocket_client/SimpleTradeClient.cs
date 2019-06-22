@@ -276,6 +276,8 @@ namespace Blinktrade
 							JObject msg = evt.json;
 							LogStatus(LogStatusType.WARN, "Receieved Market Data Event " + evt.evtType.ToString() + msg);
 
+                            // TODO: when W no longer sends the trades we must enqueue the trades until the last U33 page is processed
+
 							_vwapForTradingSym.pushTrade( 
 									new ShortPeriodTickBasedVWAP.Trade(
 										msg["TradeID"].Value<ulong>(),
@@ -438,6 +440,7 @@ namespace Blinktrade
 								else
 								{
 									LogStatus(LogStatusType.INFO, "EOT - no more Trade History pages to process.");
+									// TODO: Process all enqueued real time trades here                                   
 								}
 
 								LogStatus(LogStatusType.INFO, String.Format("VWAP = {0}", _vwapForTradingSym.calculateVWAP()));
@@ -590,7 +593,7 @@ namespace Blinktrade
             securitystatus_request["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(securitystatus_request.ToString());
 
-			// 5. send the trade history request
+			// 5. send the trade history request (TODO: find how to request the last 24h trades)
 			JObject trades_request = new JObject();
 			trades_request["MsgType"] = "U32";
 			trades_request["TradeHistoryReqID"] = connection.NextOutgoingSeqNum();
