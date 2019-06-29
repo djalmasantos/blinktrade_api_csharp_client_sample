@@ -514,16 +514,20 @@ namespace Blinktrade
 						var pivotOrder = buyside[position];
                         if (pivotOrder.UserId == _tradeclient.UserId)
                         {
-                            // TODO: make sure the order is the same or from another client instance
-                            // ordem ja e minha : pega + recursos disponiveis e cola no preco no vizinho se já nao estiver
-                            ulong price_delta = buyside.Count > position + 2 ? pivotOrder.Price - buyside[position+1].Price : 0;
-                            ulong newBuyPrice = (price_delta > (ulong)(0.01 * 1e8) ?
-                                            pivotOrder.Price - price_delta + (ulong)(0.01 * 1e8) :
-                                            pivotOrder.Price);
-                            ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, newBuyPrice);
-                            if (newBuyPrice < pivotOrder.Price || availableQty > pivotOrder.Qty)
+                            // make sure the order is the same or from another client instance
+                            MiniOMS.IOrder own_buy_order = _tradeclient.miniOMS.GetOrderByClOrdID(_strategyBuyOrderClorid);
+                            if (buyside[position].OrderId == own_buy_order.OrderID)
                             {
-                                replaceOrder(webSocketConnection, symbol, OrderSide.BUY, newBuyPrice, availableQty);
+                                // ordem ja e minha : pega + recursos disponiveis e cola no preco no vizinho se já nao estiver
+                                ulong price_delta = buyside.Count > position + 1 ? pivotOrder.Price - buyside[position + 1].Price : 0;
+                                ulong newBuyPrice = (price_delta > (ulong)(0.01 * 1e8) ?
+                                                pivotOrder.Price - price_delta + (ulong)(0.01 * 1e8) :
+                                                pivotOrder.Price);
+                                ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, newBuyPrice);
+                                if (newBuyPrice < pivotOrder.Price || availableQty > pivotOrder.Qty)
+                                {
+                                    replaceOrder(webSocketConnection, symbol, OrderSide.BUY, newBuyPrice, availableQty);
+                                }
                             }
                         }
                         else
@@ -536,18 +540,22 @@ namespace Blinktrade
                 }
                 else 
                 {
-                    // TODO: make sure the order is the same or from another client instance
-                    // check and replace order to get closer to the order in the second position
+                    // make sure the order is the same or from another client instance
+                    // check and replace order to get closer to the order in the second position and gather more avaible funds
                     List<OrderBook.Order> buyside = _tradeclient.GetOrderBook(symbol).GetBidOrders();
-                    ulong price_delta = buyside.Count > 1 ? buyside[0].Price - buyside[1].Price : 0;
-                    ulong newBuyPrice = ( price_delta > (ulong)(0.01 * 1e8) ? 
-											bestBid.Price - price_delta + (ulong)(0.01 * 1e8) : 
-											bestBid.Price );
-                    ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, newBuyPrice);
-                    if (newBuyPrice < bestBid.Price || availableQty > bestBid.Qty)
+                    MiniOMS.IOrder own_buy_order = _tradeclient.miniOMS.GetOrderByClOrdID(_strategyBuyOrderClorid);
+                    if (buyside[0].OrderId == own_buy_order.OrderID)
                     {
-                        replaceOrder(webSocketConnection, symbol, OrderSide.BUY, newBuyPrice, availableQty);
+                        ulong price_delta = buyside.Count > 1 ? buyside[0].Price - buyside[1].Price : 0;
+                        ulong newBuyPrice = (price_delta > (ulong)(0.01 * 1e8) ?
+                                                bestBid.Price - price_delta + (ulong)(0.01 * 1e8) :
+                                                bestBid.Price);
+                        ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, newBuyPrice);
+                        if (newBuyPrice < bestBid.Price || availableQty > bestBid.Qty)
+                        {
+                            replaceOrder(webSocketConnection, symbol, OrderSide.BUY, newBuyPrice, availableQty);
 
+                        }
                     }
                 }
             }
@@ -555,112 +563,131 @@ namespace Blinktrade
             {
 				// empty book scenario
 				ulong availableQty = calculateOrderQty(symbol, OrderSide.BUY, _buyTargetPrice);
-				sendOrder(webSocketConnection, symbol, OrderSide.BUY, availableQty, _buyTargetPrice);
+                Debug.Assert(_buyTargetPrice > 0);
+                ulong buy_price = Math.Min(_buyTargetPrice, bestOffer != null ? bestOffer.Price - (ulong)(0.01 * 1e8) : ulong.MaxValue);
+                sendOrder(webSocketConnection, symbol, OrderSide.BUY, availableQty, buy_price);
             }
         }
 
         private void runSellStrategy(IWebSocketClientConnection webSocketConnection, string symbol)
         {
-			OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
-			OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
-			if (_priceType == PriceType.MARKET_AS_MAKER) {
-				ulong sellPrice = 0;
-				if (bestBid != null) {
-					sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
-				} else if (bestOffer != null) {
-					sellPrice = bestOffer.Price;
-				}
-				if (sellPrice > 0 && sellPrice >= _sell_floor) {
+            OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
+            OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+            if (_priceType == PriceType.MARKET_AS_MAKER)
+            {
+                ulong sellPrice = 0;
+                if (bestBid != null)
+                {
+                    sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
+                }
+                else if (bestOffer != null)
+                {
+                    sellPrice = bestOffer.Price;
+                }
+                if (sellPrice > 0 && sellPrice >= _sell_floor)
+                {
                     replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
-				}
-				return;
-			}
+                }
+                return;
+            }
 
             if (bestOffer != null)
             {
                 if (bestOffer.UserId != _tradeclient.UserId)
                 {
-					// sell @ 1 cent bellow the best price (TODO: parameter for price increment)
+                    // sell @ 1 cent bellow the best price (TODO: parameter for price increment)
                     ulong sellPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
                     if (sellPrice >= _sellTargetPrice)
                     {
-						// TODO: Become a Taker when the spread is "small" (i.e for stop trailing converted to pegged or for any pegged)
-                        if (sellPrice > bestBid.Price) {
-							replaceOrder (webSocketConnection, symbol, OrderSide.SELL, sellPrice);
-						}
-						else 
-						{
-							// avoid being a taker or receiving a reject when using ExecInst=6 but stay in the book with max price
-							ulong max_sell_price = bestBid.Price + (ulong)(0.01 * 1e8);
-							var own_order = _tradeclient.miniOMS.GetOrderByClOrdID( _strategySellOrderClorid );
-							ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-							if (own_order == null || own_order.Price != max_sell_price || availableQty > own_order.OrderQty)
-								replaceOrder(webSocketConnection, symbol, OrderSide.SELL, max_sell_price);
-						}
+                        // TODO: Become a Taker when the spread is "small" (i.e for stop trailing converted to pegged or for any pegged)
+                        if (sellPrice > bestBid.Price)
+                        {
+                            replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+                        }
+                        else
+                        {
+                            // avoid being a taker or receiving a reject when using ExecInst=6 but stay in the book with max price
+                            ulong max_sell_price = bestBid.Price + (ulong)(0.01 * 1e8);
+                            var own_order = _tradeclient.miniOMS.GetOrderByClOrdID(_strategySellOrderClorid);
+                            ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                            if (own_order == null || own_order.Price != max_sell_price || availableQty > own_order.OrderQty)
+                                replaceOrder(webSocketConnection, symbol, OrderSide.SELL, max_sell_price);
+                        }
                     }
                     else
                     {
                         // cannot fight for the first position thus try to find a visible position in the book
                         OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
                         List<OrderBook.Order> sellside = orderBook.GetOfferOrders();
-                        int i = sellside.BinarySearch( 
-                            new OrderBook.Order( OrderBook.OrdSide.SELL, _sellTargetPrice + (ulong)(0.01 * 1e8)), 
+                        int i = sellside.BinarySearch(
+                            new OrderBook.Order(OrderBook.OrdSide.SELL, _sellTargetPrice + (ulong)(0.01 * 1e8)),
                             new OrderBook.OrderPriceComparer()
                         );
                         int position = (i < 0 ? ~i : i);
-						Debug.Assert (position > 0);
-                        
-						// verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
-						if (position > 15+1 && orderBook.DoesAmountExceedsLimit (
-							OrderBook.OrdSide.SELL,
-							position - 1, (ulong)(20 * 1e8))) 
-						{
-							_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
-							return;
-						}
+                        Debug.Assert(position > 0);
 
-						var pivotOrder = sellside[position];
-                        if (pivotOrder.UserId == _tradeclient.UserId) 
+                        // verificar se a profundidade vale a pena: (TODO: parameters for max_pos_depth and max_amount_depth)
+                        if (position > 15 + 1 && orderBook.DoesAmountExceedsLimit(
+                            OrderBook.OrdSide.SELL,
+                            position - 1, (ulong)(20 * 1e8)))
                         {
-                            // TODO: make sure the order is the same or from another client instance
-                            // ordem ja e minha : pega + recursos disponiveis e cola no preco do vizinho se já nao estiver
-                            ulong price_delta = sellside[position+1].Price - pivotOrder.Price;
-                            ulong newSellPrice = (price_delta > (ulong)(0.01 * 1e8) ?
-                                            pivotOrder.Price + price_delta - (ulong)(0.01 * 1e8) :
-                                            pivotOrder.Price);
-                            ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                            if (newSellPrice > pivotOrder.Price || availableQty > pivotOrder.Qty)
+                            _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
+                            return;
+                        }
+
+                        var pivotOrder = sellside[position];
+                        if (pivotOrder.UserId == _tradeclient.UserId)
+                        {
+                            // make sure the order is the same or from another client instance
+                            MiniOMS.IOrder own_sell_order = _tradeclient.miniOMS.GetOrderByClOrdID(_strategySellOrderClorid);
+                            if (sellside[position].OrderId == own_sell_order.OrderID)
                             {
-                                replaceOrder(webSocketConnection, symbol, OrderSide.SELL, newSellPrice, availableQty);
+                                // ordem ja e minha : pega + recursos disponiveis e cola no preco do vizinho se já nao estiver
+                                ulong price_delta = sellside.Count > position + 1 ? sellside[position + 1].Price - pivotOrder.Price : 0;
+                                ulong newSellPrice = (price_delta > (ulong)(0.01 * 1e8) ?
+                                                pivotOrder.Price + price_delta - (ulong)(0.01 * 1e8) :
+                                                pivotOrder.Price);
+                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                                if (newSellPrice > pivotOrder.Price || availableQty > pivotOrder.Qty)
+                                {
+                                    replaceOrder(webSocketConnection, symbol, OrderSide.SELL, newSellPrice, availableQty);
+                                }
                             }
                         }
-                        else 
+                        else
                         {
-							// estabelece preco de venda 1 centavo menor do que nesta posicao
-							ulong newSellPrice = pivotOrder.Price - (ulong)(0.01 * 1e8);
-							replaceOrder(webSocketConnection, symbol, OrderSide.SELL, newSellPrice);
+                            // estabelece preco de venda 1 centavo menor do que nesta posicao
+                            ulong newSellPrice = pivotOrder.Price - (ulong)(0.01 * 1e8);
+                            replaceOrder(webSocketConnection, symbol, OrderSide.SELL, newSellPrice);
                         }
                     }
                 }
-                else 
+                else
                 {
-                    // TODO: make sure the order is the same or from another client instance
-                    // check and replace the order to get closer to the order in the second position and gather more available funds
+                    // check and replace the order on the top to get closer to the order in the second position and gather more available funds
+                    MiniOMS.IOrder own_sell_order = _tradeclient.miniOMS.GetOrderByClOrdID(_strategySellOrderClorid);
                     List<OrderBook.Order> sellside = _tradeclient.GetOrderBook(symbol).GetOfferOrders();
-                    ulong price_delta = sellside.Count > 1 ? sellside[1].Price - sellside[0].Price : 0;
-                    ulong newSellPrice = ( price_delta > (ulong)(0.01 * 1e8) ? 
-											bestOffer.Price + price_delta - (ulong)(0.01 * 1e8) : 
-											bestOffer.Price );
-                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                    if (newSellPrice > bestOffer.Price || availableQty > bestOffer.Qty)
+                    if (sellside[0].OrderId == own_sell_order.OrderID)
                     {
-                        replaceOrder(webSocketConnection, symbol, OrderSide.SELL, newSellPrice, availableQty);
+                        ulong price_delta = sellside.Count > 1 ? sellside[1].Price - sellside[0].Price : 0;
+                        ulong newSellPrice = (price_delta > (ulong)(0.01 * 1e8) ?
+                                                bestOffer.Price + price_delta - (ulong)(0.01 * 1e8) :
+                                                bestOffer.Price);
+                        ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                        if (newSellPrice > bestOffer.Price || availableQty > bestOffer.Qty)
+                        {
+                            replaceOrder(webSocketConnection, symbol, OrderSide.SELL, newSellPrice, availableQty);
+                        }
                     }
                 }
             }
             else
             {
-                // TODO: empty book scenario
+                // empty book scenario
+                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                Debug.Assert(_sellTargetPrice > 0);
+                ulong sell_price = Math.Max(_sellTargetPrice, bestBid != null ? bestBid.Price + (ulong)(0.01 * 1e8) : 0);
+                sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, sell_price);
             }
         }
 
