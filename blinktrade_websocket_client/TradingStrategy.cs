@@ -281,6 +281,14 @@ namespace Blinktrade
                 }
             }
 
+            OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
+            if (orderBook == null)
+            {
+                LogStatus(LogStatusType.ERROR, "Order Book not available for " + symbol);
+                return;
+            }
+
+
             if (_priceType == PriceType.TRAILING_STOP)
             {
                 if (_strategySide == OrderSide.SELL && _stop_price > 0)
@@ -289,14 +297,21 @@ namespace Blinktrade
                     {
                         // trigger the stop when the price goes down
                         ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
-                        ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                        Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
-                        // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
-                        availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
-                        // execute the order as taker
-                        sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
-                        // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
-                        _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                        if (orderBook.BestBid != null && orderBook.BestBid.Price >= stop_price_floor)
+                        {
+                            ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                            Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
+                            // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
+                            availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
+                            // execute the order as taker
+                            sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
+                            // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
+                            _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                        }
+                        else
+                        {
+                            Console.WriteLine("DEBUG - Stop Trailing Price not available {0}", stop_price_floor);
+                        }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                         _priceType = PriceType.PEGGED;
                         _maxOrderSize = _minOrderSize * 100;
@@ -311,7 +326,6 @@ namespace Blinktrade
                         {
                             _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
                             Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
-
                         }
                         // and check we should make profit
                         if (_trailing_stop_entry_price > 0) {
@@ -320,11 +334,18 @@ namespace Blinktrade
                             {
                                 Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}]", btcusd_quote.LastPx);
                                 _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                                availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
-                                // execute the order as taker and emulate IOC instruction
-                                sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
-                                _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                                if (orderBook.BestBid != null && orderBook.BestBid.Price >= _sell_floor)
+                                {
+                                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                                    availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
+                                    // execute the order as taker and emulate IOC instruction
+                                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
+                                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("DEBUG - Stop Trailing Price not available {0}", _sell_floor);
+                                }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.FIXED;
                                 _sellTargetPrice = _sell_floor;
@@ -359,9 +380,7 @@ namespace Blinktrade
 				}
 
 				// gather the data to calculate the midprice
-				OrderBook orderBook = _tradeclient.GetOrderBook(symbol);
-
-				// instead of bestAsk let's use the Price reached if one decides to buy X BTC
+                // instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
 														(ulong)(1 * 1e8), // TODO: make it a parameter
