@@ -117,7 +117,7 @@ namespace Blinktrade
 			_startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
 		}
 
-		/*
+        /*
 		private Object connLock = new Object();  
 		private IWebSocketClientConnection _connection = null; // might change to a list of connections in the future
 
@@ -169,9 +169,9 @@ namespace Blinktrade
 		}
 		*/
 
-		public void OnDepositRefresh(string deposit_id, string currency, ulong amount, int status, string state)
-		{
-			Console.WriteLine ("DEBUG Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
+        public void OnDepositRefresh(string deposit_id, string currency, ulong amount, int status, string state)
+        {
+            Console.WriteLine("DEBUG Received Depoist {0} {1} [{2}][{3}]", amount, currency, status, state);
             SecurityStatus btcusd_quote = _tradeclient.GetSecurityStatus("BITSTAMP", "BTCUSD");
             if (btcusd_quote == null || btcusd_quote.LastPx == 0)
             {
@@ -180,12 +180,28 @@ namespace Blinktrade
             }
 
             SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus("UOL", "USDBRL"); // use USDBRT for the turism quote
-            if (usd_official_quote == null || usd_official_quote.BestAsk == 0)
+            if (usd_official_quote == null || usd_official_quote.BestAsk == 0 || usd_official_quote.BestBid == 0)
             {
                 LogStatus(LogStatusType.ERROR, "UOL:USDBRL not available");
                 return;
             }
 
+            // calcuate the deposit amount in USD and BRL
+            if (currency == "BTC")
+            {
+                var deposit_usd_amount = (ulong)(Math.Round(amount / 1e8 * btcusd_quote.BestBid / 1e8, 2) * 1e8);
+                var deposit_brl1_amount = (ulong)(Math.Round(deposit_usd_amount / 1e8 * usd_official_quote.BestBid / 1e8, 2) * 1e8);
+                var deposit_brl2_amount = ulong.MaxValue;
+                var btcbrl_order_book = tradeclient.GetOrderBook("BTCBRL");
+                if (btcbrl_order_book != null && btcbrl_order_book.BestBid != null) {
+                    deposit_brl2_amount = (ulong)(Math.Round(amount / 1e8 * btcbrl_order_book.BestBid.Price / 1e8, 2) * 1e8);
+                }
+                double usdbrxbt_percent = 0;
+                if (deposit_brl1_amount > 0 && deposit_brl2_amount < ulong.MaxValue) {
+                    usdbrxbt_percent = (deposit_brl2_amount - deposit_brl1_amount) / deposit_brl1_amount;
+                }
+                Console.WriteLine("DEBUG Calculated Amounts in USDA-BRLA1-BRLA2-USDC-USDBRXBT% {0} {1} {2} {3} {4}", deposit_usd_amount, deposit_brl1_amount, deposit_brl2_amount, usd_official_quote.BestBid, usdbrxbt_percent);
+            }
 
             if (_strategySide == OrderSide.SELL && currency == "BTC")
             {
