@@ -619,7 +619,7 @@ namespace Blinktrade
             orders_list_request["OrdersReqID"] = connection.NextOutgoingSeqNum();
             orders_list_request["Page"] = page;
             orders_list_request["PageSize"] = 20;
-			orders_list_request["Filter"] = new JArray(/*"has_leaves_qty eq 1"*/ "has_cum_qty eq 1");
+			orders_list_request["Filter"] = new JArray("has_leaves_qty eq 1");
             connection.SendMessage(orders_list_request.ToString());
         }
 
