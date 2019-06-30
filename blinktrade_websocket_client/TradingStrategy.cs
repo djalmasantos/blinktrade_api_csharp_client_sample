@@ -13,7 +13,7 @@ namespace Blinktrade
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(1000 * 1e8); // TODO: make it an optional parameter
         private const double _market_price_adjustment_factor = 1.01; // 1% above - should be a parameter in the future
-        private const double _stop_price_adjustment_factor = 0.995;  // 0.5% bellow - should be a parameter in the future
+        private const double _stop_price_adjustment_factor = 0.99;  // 1% bellow - should be a parameter in the future
 
         private ulong _maxOrderSize = 0;
 
@@ -297,10 +297,11 @@ namespace Blinktrade
                     {
                         // trigger the stop when the price goes down
                         ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
-                        if (orderBook.BestBid != null && orderBook.BestBid.Price >= stop_price_floor)
+                        ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
+                        if (best_bid_price >= stop_price_floor)
                         {
                             ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                            Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}]", btcusd_quote.LastPx, stop_price_floor, availableQty);
+                            Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, stop_price_floor, availableQty);
                             // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
                             availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
                             // execute the order as taker
@@ -308,15 +309,11 @@ namespace Blinktrade
                             // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
                             _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                         }
-                        else
-                        {
-                            Console.WriteLine("DEBUG - Stop Trailing Price not available {0}", stop_price_floor);
-                        }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                         _priceType = PriceType.PEGGED;
-                        _maxOrderSize = _minOrderSize * 100;
+                        _maxOrderSize = _minOrderSize * 1000;
                         _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                        Console.WriteLine("DEBUG Changed Strategy to MARKET AS with SELL_FLOOR=[{0}]", _sell_floor);
+                        Console.WriteLine("DEBUG Changed Strategy to MARKET AS MAKER with SELL_FLOOR=[{0}]", _sell_floor);
                     }
                     else
                     {
@@ -332,25 +329,22 @@ namespace Blinktrade
                             ulong acceptable_profit_price = _trailing_stop_entry_price + _pegOffsetValue;
                             if (btcusd_quote.LastPx >= acceptable_profit_price)
                             {
-                                Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}]", btcusd_quote.LastPx);
+                                ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
                                 _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                                if (orderBook.BestBid != null && orderBook.BestBid.Price >= _sell_floor)
+                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                                Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
+                                if (best_bid_price >= _sell_floor)
                                 {
-                                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
                                     availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
                                     // execute the order as taker and emulate IOC instruction
                                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
                                     _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                                 }
-                                else
-                                {
-                                    Console.WriteLine("DEBUG - Stop Trailing Price not available {0}", _sell_floor);
-                                }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.FIXED;
                                 _sellTargetPrice = _sell_floor;
-                                _maxOrderSize = _minOrderSize * 100;
-                                Console.WriteLine("DEBUG Changed Strategy to FIXED with SELL_TARGET_PRICE=[{0}]", _sell_floor);
+                                _maxOrderSize = _minOrderSize * 1000;
+                                Console.WriteLine("DEBUG Changed Strategy to FIXED with SELL_TARGET_PRICE=[{0}]", _sellTargetPrice);
                             }
                         }
                        
