@@ -296,7 +296,7 @@ namespace Blinktrade
                     if (btcusd_quote.LastPx <= _stop_price)
                     {
                         // trigger the stop when the price goes down
-                        ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
+                        ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
                         ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
                         if (best_bid_price >= stop_price_floor)
                         {
@@ -313,7 +313,7 @@ namespace Blinktrade
                         _priceType = PriceType.PEGGED;
                         _pegOffsetValue = 0;
                         _maxOrderSize = _minOrderSize * 1000;
-                        _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
+                        _sell_floor = stop_price_floor;
                         Console.WriteLine("DEBUG Changed Strategy to MARKET AS MAKER with SELL_FLOOR=[{0}]", _sell_floor);
                     }
                     else
@@ -331,7 +331,7 @@ namespace Blinktrade
                             if (btcusd_quote.LastPx >= acceptable_profit_price)
                             {
                                 ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
-                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
+                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
                                 ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
                                 Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
                                 if (best_bid_price >= _sell_floor)
