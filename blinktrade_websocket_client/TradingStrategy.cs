@@ -345,7 +345,6 @@ namespace Blinktrade
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.PEGGED;
                                 _pegOffsetValue = 0;
-                                _sellTargetPrice = _sell_floor;
                                 _maxOrderSize = _minOrderSize * 1000;
                                 Console.WriteLine("DEBUG Changed Strategy to FIXED with SELL_TARGET_PRICE=[{0}]", _sellTargetPrice);
                             }
