@@ -342,7 +342,7 @@ namespace Blinktrade
                                     _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
                                 }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
-                                _priceType = PriceType.FIXED;
+                                _priceType = PriceType.PEGGED;
                                 _pegOffsetValue = 0;
                                 _sellTargetPrice = _sell_floor;
                                 _maxOrderSize = _minOrderSize * 1000;
