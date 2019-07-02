@@ -617,6 +617,10 @@ namespace Blinktrade
                 {
                     replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
                 }
+                else if (_sell_floor > 0)
+                {
+                    replaceOrder(webSocketConnection, symbol, OrderSide.SELL, _sell_floor);
+                }         
                 return;
             }
 
