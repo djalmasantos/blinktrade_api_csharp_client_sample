@@ -613,14 +613,11 @@ namespace Blinktrade
                 {
                     sellPrice = bestOffer.Price;
                 }
-                if (sellPrice > 0 && sellPrice >= _sell_floor)
+
+                if (sellPrice > 0 || _sell_floor > 0)
                 {
-                    replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+                    replaceOrder(webSocketConnection, symbol, OrderSide.SELL, Math.Max(sellPrice, _sell_floor));
                 }
-                else if (_sell_floor > 0)
-                {
-                    replaceOrder(webSocketConnection, symbol, OrderSide.SELL, _sell_floor);
-                }         
                 return;
             }
 
