@@ -311,6 +311,7 @@ namespace Blinktrade
                         }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                         _priceType = PriceType.PEGGED;
+                        _pegOffsetValue = 0;
                         _maxOrderSize = _minOrderSize * 1000;
                         _sell_floor = (ulong)(Math.Round(stop_price_floor / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
                         Console.WriteLine("DEBUG Changed Strategy to MARKET AS MAKER with SELL_FLOOR=[{0}]", _sell_floor);
@@ -342,6 +343,7 @@ namespace Blinktrade
                                 }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.FIXED;
+                                _pegOffsetValue = 0;
                                 _sellTargetPrice = _sell_floor;
                                 _maxOrderSize = _minOrderSize * 1000;
                                 Console.WriteLine("DEBUG Changed Strategy to FIXED with SELL_TARGET_PRICE=[{0}]", _sellTargetPrice);
