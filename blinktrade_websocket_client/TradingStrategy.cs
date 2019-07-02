@@ -200,23 +200,24 @@ namespace Blinktrade
                 if (deposit_brl1_amount > 0 && deposit_brl2_amount < ulong.MaxValue) {
                     usdbrxbt_percent = (deposit_brl2_amount - deposit_brl1_amount) / deposit_brl1_amount;
                 }
+
                 Console.WriteLine("DEBUG Calculated Amounts in USDA-BRLA1-BRLA2-USDC-USDBRXBT% {0} {1} {2} {3} {4}", deposit_usd_amount, deposit_brl1_amount, deposit_brl2_amount, usd_official_quote.BestBid, usdbrxbt_percent);
-            }
 
-            if (_strategySide == OrderSide.SELL && currency == "BTC")
-            {
-                if (_priceType == PriceType.TRAILING_STOP && _stop_price == 0)
+                if (_strategySide == OrderSide.SELL)
                 {
-                    _trailing_stop_entry_price = btcusd_quote.LastPx;
-                    _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
-                    Console.WriteLine("DEBUG Trailing Stop EntryPrice={0} and StopPrice={1}", _trailing_stop_entry_price, _stop_price);
-                    // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
-                }
-                else if (_priceType == PriceType.PEGGED && this._sell_floor == 0)
-                {
+                    if (_priceType == PriceType.TRAILING_STOP && _stop_price == 0)
+                    {
+                        _trailing_stop_entry_price = btcusd_quote.LastPx;
+                        _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                        Console.WriteLine("DEBUG Trailing Stop EntryPrice={0} and StopPrice={1}", _trailing_stop_entry_price, _stop_price);
+                        // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
+                    }
+                    else if (_priceType == PriceType.PEGGED && this._sell_floor == 0)
+                    {
 
-                    this._sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
-                    Console.WriteLine("DEBUG Calculated Sell Floor {0}", this._sell_floor);
+                        this._sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
+                        Console.WriteLine("DEBUG Calculated Sell Floor {0}", this._sell_floor);
+                    }
                 }
             }
         }
