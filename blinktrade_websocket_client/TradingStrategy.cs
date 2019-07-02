@@ -603,7 +603,7 @@ namespace Blinktrade
             OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
             OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 
-            // Stop Trailing stops with partial fills should execute ASAP even as a liquidity taker when possible
+            // stops with partial fills should execute ASAP even as liquidity takers whenever possible
             if (_stop_price > 0 && _sell_floor > 0 && bestBid != null && bestBid.Price >= _sell_floor)
             {
                 ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
