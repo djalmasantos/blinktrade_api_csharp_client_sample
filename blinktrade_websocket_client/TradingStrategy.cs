@@ -397,10 +397,8 @@ namespace Blinktrade
 				}
 				else
 				{
-					//floor = (ulong)(1.025 * btcusd_quote.LastPx * (float)(usd_official_quote.BestAsk / 1e8));
-					// floor = (ulong)(30000*1e8);
-					//floor = 0;
-				}
+                    floor = (ulong)(Math.Round(1.01 * btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8, 2) * 1e8);
+                }
 
 				// check the selling FLOOR
 				if ( _sellTargetPrice < floor ) {
