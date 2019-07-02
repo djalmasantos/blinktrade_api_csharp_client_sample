@@ -602,6 +602,21 @@ namespace Blinktrade
         {
             OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
             OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
+
+            // Stop Trailing stops with partial fills should execute ASAP even as a liquidity taker when possible
+            if (_stop_price > 0 && _sell_floor > 0 && bestBid != null && bestBid.Price >= _sell_floor)
+            {
+                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                if (availableQty >= _minOrderSize)
+                {
+                    ulong sell_qty = Math.Min(availableQty, bestBid.Qty);
+                    // execute the order as taker and emulate IOC instruction
+                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, sell_qty, bestBid.Price, OrdType.LIMIT, 0, ExecInst.DEFAULT);
+                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                }
+                return;
+            }
+
             if (_priceType == PriceType.MARKET_AS_MAKER)
             {
                 ulong sellPrice = 0;
