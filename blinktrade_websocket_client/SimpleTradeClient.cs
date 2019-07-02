@@ -1048,14 +1048,14 @@ namespace Blinktrade
 						if (!_userRequestExit) 
 						{
 							tradeclient.ResetData(); // must reset tradeclient to refresh whole data after new connection
-							LogStatus (LogStatusType.WARN, "Trying to reconnect in 5 seconds...");
-							Task.Delay(TimeSpan.FromSeconds(2)).Wait();
+							LogStatus (LogStatusType.WARN, "Trying to reconnect in 3 seconds...");
+							Task.Delay(TimeSpan.FromSeconds(3)).Wait();
 						}
 					}
 					catch(System.Net.WebException ex) 
 					{
 						LogStatus (LogStatusType.ERROR, ex.Message + '\n' + ex.StackTrace);
-						Task.Delay(TimeSpan.FromSeconds(2)).Wait();
+						Task.Delay(TimeSpan.FromSeconds(1)).Wait();
 						continue;
 					}
 				}
