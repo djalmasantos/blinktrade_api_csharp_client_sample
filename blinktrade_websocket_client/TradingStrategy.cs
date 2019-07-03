@@ -299,10 +299,10 @@ namespace Blinktrade
                         // trigger the stop when the price goes down
                         ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
                         ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
+                        ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                        Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, stop_price_floor, availableQty);
                         if (best_bid_price >= stop_price_floor)
                         {
-                            ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
-                            Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, stop_price_floor, availableQty);
                             // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
                             availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
                             // execute the order as taker with IOC emulation
@@ -313,7 +313,7 @@ namespace Blinktrade
                         _pegOffsetValue = 0;
                         _maxOrderSize = _minOrderSize * 1000;
                         _sell_floor = stop_price_floor;
-                        Console.WriteLine("DEBUG Changed Strategy to MARKET AS MAKER with SELL_FLOOR=[{0}]", _sell_floor);
+                        Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
                     }
                     else
                     {
@@ -343,7 +343,7 @@ namespace Blinktrade
                                 _priceType = PriceType.PEGGED;
                                 _pegOffsetValue = 0;
                                 _maxOrderSize = _minOrderSize * 1000;
-                                Console.WriteLine("DEBUG Changed Strategy to FIXED with SELL_TARGET_PRICE=[{0}]", _sellTargetPrice);
+                                Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_TARGET_PRICE=[{0}]", _sellTargetPrice);
                             }
                         }
                        
