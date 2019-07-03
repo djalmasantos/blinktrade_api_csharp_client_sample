@@ -648,7 +648,8 @@ namespace Blinktrade
 								string client_order_id, 
 								char order_type = '2', 
 								ulong stop_price = 0,
-								char execInst = ExecInst.DEFAULT)
+								char execInst = ExecInst.DEFAULT,
+                                char time_in_force = TimeInForce.GOOD_TILL_CANCEL)
         {
             // add pending new order to the OMS
             MiniOMS.Order orderToSend = new MiniOMS.Order();
@@ -696,6 +697,12 @@ namespace Blinktrade
             new_order_single["FingerPrint"] = connection.Device.FingerPrint;
             new_order_single["STUNTIP"] = connection.Device.Stuntip;
             connection.SendMessage(new_order_single.ToString());
+
+            if (time_in_force == TimeInForce.IMMEDIATE_OR_CANCEL)
+            {
+                // emulate IOC order by sending a cancellation of the order despite the fills
+                CancelOrderByClOrdID(connection, orderToSend.ClOrdID, true /* true = force - don't wait the broker send the order ack */);
+            }
             return orderToSend.ClOrdID;
         }
 

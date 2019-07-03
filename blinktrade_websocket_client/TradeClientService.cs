@@ -21,7 +21,9 @@ namespace Blinktrade
 		string SendOrder(IWebSocketClientConnection connection, 
 			string symbol, ulong qty, ulong price, 
 			char side, int broker_id, string client_order_id, 
-			char order_type = OrdType.LIMIT, ulong stop_price = 0, char execInst = ExecInst.DEFAULT);
+			char order_type = OrdType.LIMIT, ulong stop_price = 0, 
+            char execInst = ExecInst.DEFAULT,
+            char time_in_force = TimeInForce.GOOD_TILL_CANCEL);
         
 		bool CancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID, bool force_unconfirmed_order_cancellation = false);
        // bool ForceCancelOrderByClOrdID(IWebSocketClientConnection connection, string clOrdID);

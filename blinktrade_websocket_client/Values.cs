@@ -32,6 +32,7 @@ namespace Blinktrade
     public class TimeInForce
     { 
         public const char GOOD_TILL_CANCEL = '1';
+        public const char IMMEDIATE_OR_CANCEL = '3';
     }
 
     public class ExecInst 

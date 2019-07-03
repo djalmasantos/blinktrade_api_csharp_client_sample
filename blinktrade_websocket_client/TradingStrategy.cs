@@ -305,11 +305,9 @@ namespace Blinktrade
                             Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, stop_price_floor, availableQty);
                             // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
                             availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
-                            // execute the order as taker
-                            sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
-                            // immediately cancel possible leaves qty for the "automatic" adjustment of the order to the market price and avoid loss in case of low liquidity
-                            _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
-                        }
+                            // execute the order as taker with IOC emulation
+                            sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
+                       }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                         _priceType = PriceType.PEGGED;
                         _pegOffsetValue = 0;
@@ -339,8 +337,7 @@ namespace Blinktrade
                                 {
                                     availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
                                     // execute the order as taker and emulate IOC instruction
-                                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT);
-                                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
                                 }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.PEGGED;
@@ -611,8 +608,7 @@ namespace Blinktrade
                 {
                     ulong sell_qty = Math.Min(availableQty, bestBid.Qty);
                     // execute the order as taker and emulate IOC instruction
-                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, sell_qty, bestBid.Price, OrdType.LIMIT, 0, ExecInst.DEFAULT);
-                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid, true /* true = force - don't wait the broker send the order ack */);
+                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, sell_qty, bestBid.Price, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
                     return;
                 }
             }
@@ -788,7 +784,7 @@ namespace Blinktrade
             sendOrder(webSocketConnection, symbol, side, qty, price);
         }
         
-		private void sendOrder(IWebSocketClientConnection webSocketConnection, string symbol, char side, ulong qty, ulong price, char orderType = OrdType.LIMIT, ulong stop_price = 0, char exec_inst = ExecInst.PARTICIPATE_DONT_INITIATE)
+		private void sendOrder(IWebSocketClientConnection webSocketConnection, string symbol, char side, ulong qty, ulong price, char orderType = OrdType.LIMIT, ulong stop_price = 0, char exec_inst = ExecInst.PARTICIPATE_DONT_INITIATE, char time_in_force = TimeInForce.GOOD_TILL_CANCEL)
         {
             Debug.Assert(side == OrderSide.BUY || side == OrderSide.SELL);
 
@@ -808,8 +804,9 @@ namespace Blinktrade
                                         MakeClOrdId(),
 										orderType,
 										stop_price,
-                                        exec_inst
-				);
+                                        exec_inst,
+                                        time_in_force
+                );
 		
 				if (side == OrderSide.BUY)
 					_strategyBuyOrderClorid = clorid;
