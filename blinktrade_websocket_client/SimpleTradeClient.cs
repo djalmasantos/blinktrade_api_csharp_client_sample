@@ -1004,6 +1004,7 @@ namespace Blinktrade
                     if ((stoppx > 0 && stoppx <= offset) || offset == 0) {
                         throw new ArgumentException("Invalid STOPPX and OFFSET FOR TRAILING STOP");
                     }
+                    Console.WriteLine("DEBUG Starting Trailing Stop Strategy with EntryPrice=[{0}], StopPx=[{1}], Offset=[{2}]", entry_price, stoppx, offset);
                     strategy = new TradingStrategy(maxTradeSize, entry_price, stoppx, offset);
                 }
                 else
