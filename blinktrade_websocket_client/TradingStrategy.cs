@@ -189,19 +189,19 @@ namespace Blinktrade
             // calcuate the deposit amount in USD and BRL
             if (currency == "BTC")
             {
-                var deposit_usd_amount = (ulong)(Math.Round(amount / 1e8 * btcusd_quote.BestBid / 1e8, 2) * 1e8);
-                var deposit_brl1_amount = (ulong)(Math.Round(deposit_usd_amount / 1e8 * usd_official_quote.BestBid / 1e8, 2) * 1e8);
-                var deposit_brl2_amount = ulong.MaxValue;
+                var deposit_usdc_amount = (ulong)(Math.Round(amount / 1e8 * btcusd_quote.BestBid / 1e8, 2) * 1e8);
+                var deposit_brl_official_amount = (ulong)(Math.Round(deposit_usdc_amount / 1e8 * usd_official_quote.BestBid / 1e8, 2) * 1e8);
+                var deposit_brl_exchange_amount = ulong.MaxValue;
                 var btcbrl_order_book = tradeclient.GetOrderBook("BTCBRL");
                 if (btcbrl_order_book != null && btcbrl_order_book.BestBid != null) {
-                    deposit_brl2_amount = (ulong)(Math.Round(amount / 1e8 * btcbrl_order_book.BestBid.Price / 1e8, 2) * 1e8);
+                    deposit_brl_exchange_amount = (ulong)(Math.Round(amount / 1e8 * btcbrl_order_book.BestBid.Price / 1e8, 2) * 1e8);
                 }
-                double usdbrxbt_percent = 0;
-                if (deposit_brl1_amount > 0 && deposit_brl2_amount < ulong.MaxValue) {
-                    usdbrxbt_percent = (deposit_brl2_amount - deposit_brl1_amount) / deposit_brl1_amount;
+                double current_spread_percentage = 0;
+                if (deposit_brl_official_amount > 0 && deposit_brl_exchange_amount < ulong.MaxValue) {
+                    current_spread_percentage = (deposit_brl_exchange_amount / 1e8 - deposit_brl_official_amount / 1e8) / (double)(deposit_brl_official_amount / 1e8) * 100;
                 }
 
-                Console.WriteLine("DEBUG Calculated Amounts in USDA-BRLA1-BRLA2-USDC-USDBRXBT% {0} {1} {2} {3} {4}", deposit_usd_amount, deposit_brl1_amount, deposit_brl2_amount, usd_official_quote.BestBid, usdbrxbt_percent);
+                Console.WriteLine("DEBUG Calculated Amounts in USDCA-BRLOA-BRLEA-USDC-SPREADC% {0} {1} {2} {3} {4}", deposit_usdc_amount, deposit_brl_official_amount, deposit_brl_exchange_amount, usd_official_quote.BestBid, current_spread_percentage);
 
                 if (_strategySide == OrderSide.SELL)
                 {
