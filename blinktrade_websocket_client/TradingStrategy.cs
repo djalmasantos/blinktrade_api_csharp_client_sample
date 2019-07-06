@@ -627,12 +627,14 @@ namespace Blinktrade
 
                 if (sellPrice > 0 || _sell_floor > 0)
                 {
-                    if (sellPrice >= _sell_floor)
-                    {
+                    if (sellPrice >= _sell_floor)  {
                         replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
                         return;
                     }
-                    _sellTargetPrice = _sell_floor; // find the best position as maker for the sell floor price
+
+                    if (_sell_floor > 0) {
+                        _sellTargetPrice = _sell_floor; // find the best position as maker for the sell floor price
+                    }
                }
             }
 
