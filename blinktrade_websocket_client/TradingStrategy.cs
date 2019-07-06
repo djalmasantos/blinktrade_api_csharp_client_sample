@@ -600,8 +600,8 @@ namespace Blinktrade
             OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
             OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 
-            // stops with partial fills should execute ASAP even as liquidity takers whenever possible
-            if (_stop_price > 0 && _sell_floor > 0 && bestBid != null && bestBid.Price >= _sell_floor)
+            // available funds with a sell floor setting should execute ASAP even as liquidity takers whenever possible
+            if (_sell_floor > 0 && bestBid != null && bestBid.Price >= _sell_floor)
             {
                 ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
                 if (availableQty > _minOrderSize)
@@ -610,6 +610,21 @@ namespace Blinktrade
                     // execute the order as taker and emulate IOC instruction
                     sendOrder(webSocketConnection, symbol, OrderSide.SELL, sell_qty, bestBid.Price, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
                     return;
+                }
+                else
+                {
+                    // cancel current order to free balance to be used as taker
+                    MiniOMS.IOrder own_sell_order = _tradeclient.miniOMS.GetOrderByClOrdID(_strategySellOrderClorid);
+                    if (own_sell_order != null && (own_sell_order.OrdStatus == OrdStatus.NEW || own_sell_order.OrdStatus == OrdStatus.PARTIALLY_FILLED))
+                    {
+                        if (own_sell_order.LeavesQty > _minOrderSize)
+                        {
+                            ulong sell_qty = Math.Min(own_sell_order.LeavesQty, bestBid.Qty);
+                            _tradeclient.CancelOrderByClOrdID(webSocketConnection, own_sell_order.ClOrdID);
+                            sendOrder(webSocketConnection, symbol, OrderSide.SELL, sell_qty, bestBid.Price, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
+                            return;
+                        }
+                    }
                 }
             }
 
