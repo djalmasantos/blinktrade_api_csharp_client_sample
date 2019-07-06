@@ -357,22 +357,7 @@ namespace Blinktrade
 			{
 				// make the price float according to the MID Price 
 				
-                // check the remaining qty that can still be sold
-				ulong theSoldAmount = _tradeclient.GetSoldAmount();
-				if (theSoldAmount < _maxAmountToSell) 
-				{
-					ulong uAllowedAmountToSell = _maxAmountToSell - theSoldAmount;
-					_maxOrderSize = _maxOrderSize < uAllowedAmountToSell ? _maxOrderSize : uAllowedAmountToSell;
-					_maxOrderSize = _maxOrderSize > _minOrderSize ? _maxOrderSize : _minOrderSize;
-				} 
-				else 
-				{
-					LogStatus(LogStatusType.WARN, String.Format ("[runStrategy] Cannot exceed the allowed max amount to sell : {0} {1}", theSoldAmount, _maxAmountToSell));
-					_tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
-					return;
-				}
-
-				// gather the data to calculate the midprice
+                // gather the data to calculate the midprice
                 // instead of bestAsk let's use the Price reached if one decides to buy X BTC
 				ulong maxPriceToBuyXBTC = orderBook.MaxPriceForAmountWithoutSelfOrders(
 														OrderBook.OrdSide.SELL,
