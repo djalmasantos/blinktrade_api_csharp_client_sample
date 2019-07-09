@@ -274,7 +274,7 @@ namespace Blinktrade
 
             // get the dollar price
             SecurityStatus usd_official_quote = _tradeclient.GetSecurityStatus("UOL", "USDBRL"); // use USDBRT for the turism quote
-            if (usd_official_quote == null || usd_official_quote.BestAsk == 0)
+            if (usd_official_quote == null || usd_official_quote.BestAsk == 0 || usd_official_quote.BestBid == 0)
             {
                 if (_priceType == PriceType.TRAILING_STOP || _priceType == PriceType.PEGGED)
                 {
@@ -331,7 +331,7 @@ namespace Blinktrade
                             if (btcusd_quote.LastPx >= acceptable_profit_price)
                             {
                                 ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
-                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
+                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
                                 ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, _sell_floor, ulong.MaxValue);
                                 Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
                                 if (best_bid_price >= _sell_floor)
