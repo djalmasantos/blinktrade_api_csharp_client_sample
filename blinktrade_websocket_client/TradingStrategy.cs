@@ -33,10 +33,11 @@ namespace Blinktrade
 
 		// stop exclusive attributes
 		private ulong _stop_price = 0;
-        private ulong _trailing_stop_entry_price = 0; 
+        private ulong _trailing_stop_entry_price = 0;
+        private double _stoppx_offset_percentage = 0;
 
-		// another workaround for the float sell strategy
-		private ulong _sell_floor = 0;
+        // another workaround for the float sell strategy
+        private ulong _sell_floor = 0;
 
 		private ulong _minBookDepth = 0;
 		private ulong _maxBookDepth = 0;
@@ -96,14 +97,14 @@ namespace Blinktrade
 		}
 
         // trailing stop constructor
-        public TradingStrategy(ulong order_size, ulong init_price, ulong stoppx, ulong offset)
+        public TradingStrategy(ulong order_size, ulong init_price, ulong stoppx, double price_offset_percentage)
         {
             _priceType = PriceType.TRAILING_STOP;
             _strategySide = OrderSide.SELL;
             _maxOrderSize = order_size;
             _trailing_stop_entry_price = init_price;
             _stop_price = stoppx;
-            _pegOffsetValue = offset;
+            _stoppx_offset_percentage = price_offset_percentage;
             _buyTargetPrice = 0;
             _sellTargetPrice = 0;
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
@@ -208,7 +209,7 @@ namespace Blinktrade
                     if (_priceType == PriceType.TRAILING_STOP && _stop_price == 0)
                     {
                         _trailing_stop_entry_price = btcusd_quote.LastPx;
-                        _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                        _stop_price = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * (1 - _stoppx_offset_percentage / 100), 2) * 1e8);
                         Console.WriteLine("DEBUG Trailing Stop EntryPrice={0} and StopPrice={1}", _trailing_stop_entry_price, _stop_price);
                         // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
                     }
@@ -318,15 +319,15 @@ namespace Blinktrade
                     else
                     {
                         // when the market goes up - adjust the stop in case of a new maximum price in BTCUSD
-                        ulong last_max_price = _stop_price + _pegOffsetValue;
+                        ulong last_max_price = (ulong)(Math.Round(_stop_price / 1e8 / (1 - _stoppx_offset_percentage / 100), 2) * 1e8);
                         if (btcusd_quote.LastPx > last_max_price)
                         {
-                            _stop_price = btcusd_quote.LastPx - _pegOffsetValue;
+                            _stop_price = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * (1 - _stoppx_offset_percentage / 100), 2) * 1e8);
                             Console.WriteLine("DEBUG Changed Trailing StopPx = {0}", _stop_price);
                         }
                         // and check we should make profit
                         if (_trailing_stop_entry_price > 0) {
-                            ulong acceptable_profit_price = _trailing_stop_entry_price + _pegOffsetValue;
+                            ulong acceptable_profit_price = (ulong)(Math.Round(_trailing_stop_entry_price / 1e8 * (1 + _stoppx_offset_percentage / 100), 2) * 1e8);
                             if (btcusd_quote.LastPx >= acceptable_profit_price)
                             {
                                 ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;

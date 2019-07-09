@@ -999,13 +999,13 @@ namespace Blinktrade
                     // ** this is a workaround
                     ulong stoppx = buyTargetPrice;
                     ulong entry_price = sellTargetPrice;
-                    ulong offset = maxTradeSize;
+                    double percentage_offset = Math.Round(maxTradeSize / 1e8, 8);
                     maxTradeSize = ulong.MaxValue;
-                    if ((stoppx > 0 && stoppx <= offset) || offset == 0) {
-                        throw new ArgumentException("Invalid STOPPX and OFFSET FOR TRAILING STOP");
+                    if (percentage_offset < 1 || percentage_offset > 99) {
+                        throw new ArgumentException("Invalid OFFSET % FOR TRAILING STOP - Must be between 1 and 99 - %=" + percentage_offset);
                     }
-                    Console.WriteLine("DEBUG Starting Trailing Stop Strategy with EntryPrice=[{0}], StopPx=[{1}], Offset=[{2}]", entry_price, stoppx, offset);
-                    strategy = new TradingStrategy(maxTradeSize, entry_price, stoppx, offset);
+                    Console.WriteLine("DEBUG Starting Trailing Stop Strategy with EntryPrice=[{0}], StopPx=[{1}], Offset=[{2}]", entry_price, stoppx, percentage_offset);
+                    strategy = new TradingStrategy(maxTradeSize, entry_price, stoppx, percentage_offset);
                 }
                 else
                 {
@@ -1051,7 +1051,7 @@ namespace Blinktrade
 
 						// start the connection task to handle the Websocket connectivity and initiate the whole process
 						Task task = WebSocketClientConnection.Start(url, userAccount, userDevice, protocolEngine, cancel_open_orders_flag);
-						task.Wait(); // aguardar até a Task finalizar
+                        task.Wait(); // aguardar até a Task finalizar
 
 						if (!_userRequestExit) 
 						{
