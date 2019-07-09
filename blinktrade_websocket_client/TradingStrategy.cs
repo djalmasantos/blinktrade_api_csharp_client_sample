@@ -12,7 +12,7 @@ namespace Blinktrade
         private char _strategySide = default(char); // default: run both SELL AND BUY 
         private const ulong _minOrderSize = (ulong)(0.0001 * 1e8); // 10,000 Satoshi
 		private const ulong _maxAmountToSell = (ulong)(1000 * 1e8); // TODO: make it an optional parameter
-        private const double _market_price_adjustment_factor = 1.01; // 1% above - should be a parameter in the future
+        private const double _market_price_adjustment_factor = 1.001; // 0.1% above - should be a parameter in the future
         private const double _stop_price_adjustment_factor = 0.99;  // 1% bellow - should be a parameter in the future
 
         private ulong _maxOrderSize = 0;
@@ -299,7 +299,7 @@ namespace Blinktrade
                         // trigger the stop when the price goes down
                         ulong stop_price_floor = (ulong)(Math.Round(_stop_price / 1e8 * usd_official_quote.BestAsk / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
                         ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
-                        ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                        ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, stop_price_floor, ulong.MaxValue);
                         Console.WriteLine("DEBUG Triggered Trailing Stop [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, stop_price_floor, availableQty);
                         if (best_bid_price >= stop_price_floor)
                         {
@@ -331,7 +331,7 @@ namespace Blinktrade
                             {
                                 ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
                                 _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
-                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, _sell_floor, ulong.MaxValue);
                                 Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
                                 if (best_bid_price >= _sell_floor)
                                 {
@@ -343,7 +343,7 @@ namespace Blinktrade
                                 _priceType = PriceType.PEGGED;
                                 _pegOffsetValue = 0;
                                 _maxOrderSize = _minOrderSize * 1000;
-                                Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_TARGET_PRICE=[{0}]", _sellTargetPrice);
+                                Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
                             }
                         }
                        
@@ -371,20 +371,10 @@ namespace Blinktrade
 				// calculate the mid price					
 				ulong midprice = (ulong)((orderBook.BestBid.Price + maxPriceToBuyXBTC + marketPrice) / 3);
 				_sellTargetPrice = midprice + _pegOffsetValue;
-
-				// calculate the selling floor must be at least the price of the BTC in USD
-				ulong floor = 0;
-				if ( this._sell_floor > 0 ) {
-					floor = this._sell_floor;
-				}
-				else
-				{
-                    floor = (ulong)(Math.Round(_market_price_adjustment_factor * btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8, 2) * 1e8);
-                }
-
+				
 				// check the selling FLOOR
-				if ( _sellTargetPrice < floor ) {
-					_sellTargetPrice = floor;
+				if ( _sellTargetPrice < _sell_floor) {
+					_sellTargetPrice = _sell_floor;
 				}
 			}
 
@@ -399,7 +389,7 @@ namespace Blinktrade
 
 				if (_strategySide == OrderSide.SELL) {
 					char ordType = (_sellTargetPrice == 0 ? OrdType.STOP_MARKET : OrdType.STOP_LIMIT);
-					ulong qty = calculateOrderQty (symbol, _strategySide);
+					ulong qty = calculateOrderQty (symbol, OrderSide.SELL);
 					sendOrder(webSocketConnection, symbol, OrderSide.SELL, qty, _sellTargetPrice, ordType, _stop_price, default(char));
 				}
 				// disable strategy after sending the stop order...
@@ -585,10 +575,38 @@ namespace Blinktrade
             OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
             OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 
-            // available funds with a sell floor setting should execute ASAP even as liquidity takers whenever possible
-            if (_sell_floor > 0 && bestBid != null && bestBid.Price >= _sell_floor)
+            if (_priceType == PriceType.MARKET_AS_MAKER)
             {
-                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL);
+                ulong sellPrice = 0;
+                if (bestBid != null)
+                {
+                    sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
+                }
+                else if (bestOffer != null)
+                {
+                    sellPrice = bestOffer.Price;
+                }
+
+                if (sellPrice > 0 || _sell_floor > 0)
+                {
+                    if (sellPrice >= _sell_floor)
+                    {
+                        replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
+                        return;
+                    }
+
+                    if (_sell_floor == 0)
+                    {
+                        return;
+                    }
+                    _sellTargetPrice = _sell_floor; // find the best position as maker for the sell floor price
+                }
+            }
+
+            // available funds with a target price should execute ASAP even as liquidity takers whenever possible
+            if (_sellTargetPrice > 0 && bestBid != null && bestBid.Price >= _sellTargetPrice)
+            {
+                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, bestBid.Price, ulong.MaxValue);
                 if (availableQty > _minOrderSize)
                 {
                     ulong sell_qty = Math.Min(availableQty, bestBid.Qty);
@@ -613,31 +631,7 @@ namespace Blinktrade
                 }
             }
 
-            if (_priceType == PriceType.MARKET_AS_MAKER)
-            {
-                ulong sellPrice = 0;
-                if (bestBid != null)
-                {
-                    sellPrice = bestBid.Price + (ulong)(0.01 * 1e8);
-                }
-                else if (bestOffer != null)
-                {
-                    sellPrice = bestOffer.Price;
-                }
-
-                if (sellPrice > 0 || _sell_floor > 0)
-                {
-                    if (sellPrice >= _sell_floor)  {
-                        replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
-                        return;
-                    }
-
-                    if (_sell_floor > 0) {
-                        _sellTargetPrice = _sell_floor; // find the best position as maker for the sell floor price
-                    }
-               }
-            }
-
+            // post the order in the order book
             if (bestOffer != null)
             {
                 if (bestOffer.UserId != _tradeclient.UserId)
@@ -821,7 +815,12 @@ namespace Blinktrade
             }
         }
 
-        private ulong calculateOrderQty(string symbol, char side, ulong price = 0) 
+        private ulong calculateOrderQty(string symbol, char side, ulong price = 0)
+        {
+            return calculateOrderQty(symbol, side, price, _maxOrderSize);
+        }
+
+        private ulong calculateOrderQty(string symbol, char side, ulong price, ulong max_order_size) 
         {
             // check the updated balance to gather remaining qty
             ulong result = 0;
@@ -846,7 +845,7 @@ namespace Blinktrade
                         Debug.Assert(fiatLockedBalance >= self_locked_amount);
                         ulong fiatBalance = fiatTotalBalance - fiatLockedBalance + self_locked_amount;
                         ulong max_allowed_qty = (ulong)((double)fiatBalance / price * 1e8);
-                        result = _maxOrderSize < max_allowed_qty ? _maxOrderSize : max_allowed_qty;
+                        result = max_order_size < max_allowed_qty ? max_order_size : max_allowed_qty;
                     }
                     break;
                 case OrderSide.SELL:
@@ -860,7 +859,7 @@ namespace Blinktrade
                     }
                     Debug.Assert(cryptoLockedBalance >= self_locked_amount);
                     ulong cryptoBalance = cryptoTotalBalance - cryptoLockedBalance + self_locked_amount;
-                    result = _maxOrderSize < cryptoBalance ? _maxOrderSize : cryptoBalance;
+                    result = max_order_size < cryptoBalance ? max_order_size : cryptoBalance;
                     break;
                 default:
                     break;
