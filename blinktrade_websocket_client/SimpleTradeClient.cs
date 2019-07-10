@@ -1000,12 +1000,11 @@ namespace Blinktrade
                     ulong stoppx = buyTargetPrice;
                     ulong entry_price = sellTargetPrice;
                     double percentage_offset = Math.Round(maxTradeSize / 1e8, 8);
-                    maxTradeSize = ulong.MaxValue;
                     if (percentage_offset < 1 || percentage_offset > 99) {
                         throw new ArgumentException("Invalid OFFSET % FOR TRAILING STOP - Must be between 1 and 99 - %=" + percentage_offset);
                     }
                     Console.WriteLine("DEBUG Starting Trailing Stop Strategy with EntryPrice=[{0}], StopPx=[{1}], Offset=[{2}]", entry_price, stoppx, percentage_offset);
-                    strategy = new TradingStrategy(maxTradeSize, entry_price, stoppx, percentage_offset);
+                    strategy = new TradingStrategy(entry_price, stoppx, percentage_offset);
                 }
                 else
                 {

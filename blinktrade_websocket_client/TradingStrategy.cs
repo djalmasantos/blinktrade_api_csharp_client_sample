@@ -98,16 +98,16 @@ namespace Blinktrade
 		}
 
         // trailing stop constructor
-        public TradingStrategy(ulong order_size, ulong init_price, ulong stoppx, double price_offset_percentage)
+        public TradingStrategy(ulong init_price, ulong stoppx, double price_offset_percentage, ulong order_size_as_maker = 0)
         {
             _priceType = PriceType.TRAILING_STOP;
             _strategySide = OrderSide.SELL;
-            _maxOrderSize = order_size;
             _trailing_stop_entry_price = init_price;
             _stop_price = stoppx;
             _stoppx_offset_percentage = price_offset_percentage;
             Debug.Assert(price_offset_percentage > 0 && price_offset_percentage < 100);
             _trailing_stop_high_price = (ulong)(Math.Round(stoppx / 1e8 / (1 - price_offset_percentage / 100), 3) * 1e8);
+            _maxOrderSize = order_size_as_maker > 0 ? order_size_as_maker : _minOrderSize * 100;
             _buyTargetPrice = 0;
             _sellTargetPrice = 0;
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
@@ -315,14 +315,12 @@ namespace Blinktrade
                        }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                         _priceType = PriceType.PEGGED;
-                        _pegOffsetValue = 0;
-                        _maxOrderSize = _minOrderSize * 1000;
                         _sell_floor = stop_price_floor;
                         Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
                     }
                     else
                     {
-                        // when the market goes up - adjust the stop in case of a new maximum price in BTCUSD
+                        // when the market goes up - adjust the stop in case of a new high price in BTCUSD
                         if (btcusd_quote.LastPx > _trailing_stop_high_price)
                         {
                             _stop_price = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * (1 - _stoppx_offset_percentage / 100), 3) * 1e8);
@@ -346,8 +344,6 @@ namespace Blinktrade
                                 }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.PEGGED;
-                                _pegOffsetValue = 0;
-                                _maxOrderSize = _minOrderSize * 1000;
                                 Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
                             }
                         }
