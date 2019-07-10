@@ -310,7 +310,6 @@ namespace Blinktrade
                         {
                             // force a minimal execution as maker to get e-mail notification when the trailing stop is triggered
                             availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty;
-                            // execute the order as taker with IOC emulation
                             sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, stop_price_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
                        }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
@@ -330,21 +329,28 @@ namespace Blinktrade
                         // and check we should make profit
                         if (_trailing_stop_entry_price > 0) {
                             ulong acceptable_profit_price = (ulong)(Math.Round(_trailing_stop_entry_price / 1e8 * (1 + _stoppx_offset_percentage / 100), 2) * 1e8);
-                            if (btcusd_quote.LastPx >= acceptable_profit_price)
+                            if (btcusd_quote.LastPx > acceptable_profit_price)
                             {
                                 ulong best_bid_price = orderBook.BestBid != null ? orderBook.BestBid.Price : 0;
-                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, _sell_floor, ulong.MaxValue);
-                                Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
-                                if (best_bid_price >= _sell_floor)
+                                double local_exchange_spread = best_bid_price / 1e8 / btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8;
+                                if (local_exchange_spread > 1)
                                 {
-                                    availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
-                                    // execute the order as taker and emulate IOC instruction
-                                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
+                                    _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
+                                    ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, _sell_floor, ulong.MaxValue);
+                                    Console.WriteLine("DEBUG **Reached Acceptable Profit** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
+                                    if (best_bid_price >= _sell_floor)
+                                    {
+                                        availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
+                                        sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
+                                    }
+                                    // change the strategy so that the bot might negociate the leaves qty as a maker
+                                    _priceType = PriceType.PEGGED;
+                                    Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
                                 }
-                                // change the strategy so that the bot might negociate the leaves qty as a maker
-                                _priceType = PriceType.PEGGED;
-                                Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
+                                else 
+                                {
+                                    Console.WriteLine("DEBUG **Reached Acceptable Profit without local exchange spread** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, usd_official_quote.BestBid, local_exchange_spread);
+                                }
                             }
                         }
                        
