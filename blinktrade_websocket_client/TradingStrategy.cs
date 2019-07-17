@@ -618,6 +618,10 @@ namespace Blinktrade
 
                     _sellTargetPrice = _sell_floor_price; // find the best position as maker for the sell floor price
                 }
+                else
+                {
+                    return; // empty book scenario without a user defined sell floor price
+                }
             }
 
             // available funds with a target price should execute ASAP even as liquidity takers whenever possible
