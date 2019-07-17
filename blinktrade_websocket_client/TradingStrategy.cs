@@ -616,10 +616,6 @@ namespace Blinktrade
                         return;
                     }
 
-                    if (_sell_floor_price == 0)
-                    {
-                        return;
-                    }
                     _sellTargetPrice = _sell_floor_price; // find the best position as maker for the sell floor price
                 }
             }
