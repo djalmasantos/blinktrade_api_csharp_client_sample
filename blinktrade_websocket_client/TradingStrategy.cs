@@ -38,10 +38,12 @@ namespace Blinktrade
         private ulong _trailing_stop_cap_price = 0;
         private double _stoppx_offset_percentage = 0;
 
-        // another workaround for the float sell strategy
+        // limits to buy and sell (enforced by some strategies)
         private ulong _sell_floor_price = 0;
+        private ulong _buy_cap_price = ulong.MaxValue;
 
-		private ulong _minBookDepth = 0;
+
+        private ulong _minBookDepth = 0;
 		private ulong _maxBookDepth = 0;
 
         
@@ -427,19 +429,29 @@ namespace Blinktrade
         {
 			OrderBook.IOrder bestBid = _tradeclient.GetOrderBook(symbol).BestBid;
 			OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
-			if (_priceType == PriceType.MARKET_AS_MAKER) {
-				ulong buyPrice = 0;
-				if (bestOffer != null) {
-					buyPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
-				} else if (bestBid != null) {
-					buyPrice = bestBid.Price;
-				}
 
-				if (buyPrice > 0) {
-					replaceOrder(webSocketConnection, symbol, OrderSide.BUY, buyPrice);
-				}
-				return;
-			}
+            if (_priceType == PriceType.MARKET_AS_MAKER) {
+                ulong buyPrice = 0;
+                if (bestOffer != null) {
+                    buyPrice = bestOffer.Price - (ulong)(0.01 * 1e8);
+                } else if (bestBid != null) {
+                    buyPrice = bestBid.Price;
+                }
+
+                if (buyPrice > 0 && buyPrice <= _buy_cap_price)
+                {
+                    replaceOrder(webSocketConnection, symbol, OrderSide.BUY, buyPrice);
+                    return;
+                }
+
+                Debug.Assert(_buy_cap_price > 0);
+                if (_buy_cap_price == 0 || _buy_cap_price == ulong.MaxValue)
+                {
+                    return;
+                }
+               
+                _buyTargetPrice = _buy_cap_price; // find the best position as maker at the buy cap price
+            }
 
 			if (_priceType == PriceType.EXPLORE_BOOK_DEPTH) 
 			{
