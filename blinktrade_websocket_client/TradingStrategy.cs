@@ -39,7 +39,7 @@ namespace Blinktrade
         private double _stoppx_offset_percentage = 0;
 
         // another workaround for the float sell strategy
-        private ulong _sell_floor = 0;
+        private ulong _sell_floor_price = 0;
 
 		private ulong _minBookDepth = 0;
 		private ulong _maxBookDepth = 0;
@@ -222,11 +222,11 @@ namespace Blinktrade
                         Console.WriteLine("DEBUG Trailing STOP [StopPx={0}] [HighPx=[{1}] [EntryPx={2}] [CapPx={3}]", _stop_price, _trailing_stop_high_price, _trailing_stop_entry_price, _trailing_stop_cap_price);
                         // TODO: check that we are in a BTCUSD bull market to use stop trailing otherwhise switch to pegged midprice
                     }
-                    else if (_priceType == PriceType.PEGGED && this._sell_floor == 0)
+                    else if (_priceType == PriceType.PEGGED && this._sell_floor_price == 0)
                     {
 
-                        this._sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
-                        Console.WriteLine("DEBUG Calculated Sell Floor {0}", this._sell_floor);
+                        _sell_floor_price = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestAsk / 1e8 * _market_price_adjustment_factor, 2) * 1e8);
+                        Console.WriteLine("DEBUG Calculated Sell Floor Price {0}", _sell_floor_price);
                     }
                 }
             }
@@ -319,8 +319,8 @@ namespace Blinktrade
                        }
                         // change the strategy so that the bot might negociate the leaves qty as a maker applying another limit factor as a sell floor
                         _priceType = PriceType.PEGGED;
-                        _sell_floor = stop_price_floor;
-                        Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
+                        _sell_floor_price = stop_price_floor;
+                        Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR_PRICE=[{0}]", _sell_floor_price);
                     }
                     else
                     {
@@ -338,17 +338,17 @@ namespace Blinktrade
                             double local_exchange_spread = (best_bid_price / 1e8) / (double)(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8);
                             if (local_exchange_spread > 1)
                             {
-                                _sell_floor = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
-                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, _sell_floor, ulong.MaxValue);
-                                Console.WriteLine("DEBUG ** Reached Trailing Stop CAP and should execute ASAP ** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor, availableQty);
-                                if (best_bid_price >= _sell_floor)
+                                _sell_floor_price = (ulong)(Math.Round(btcusd_quote.LastPx / 1e8 * usd_official_quote.BestBid / 1e8 * _stop_price_adjustment_factor, 2) * 1e8);
+                                ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, _sell_floor_price, ulong.MaxValue);
+                                Console.WriteLine("DEBUG ** Reached Trailing Stop CAP and should execute ASAP ** [{0}],[{1}],[{2}],[{3}]", btcusd_quote.LastPx, best_bid_price, _sell_floor_price, availableQty);
+                                if (best_bid_price >= _sell_floor_price)
                                 {
                                     availableQty = availableQty > _minOrderSize ? availableQty - _minOrderSize : availableQty; // force minimal execution as maker
-                                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
+                                    sendOrder(webSocketConnection, symbol, OrderSide.SELL, availableQty, _sell_floor_price, OrdType.LIMIT, 0, ExecInst.DEFAULT, TimeInForce.IMMEDIATE_OR_CANCEL);
                                 }
                                 // change the strategy so that the bot might negociate the leaves qty as a maker
                                 _priceType = PriceType.PEGGED;
-                                Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR=[{0}]", _sell_floor);
+                                Console.WriteLine("DEBUG Changed Strategy to FLOAT with SELL_FLOOR_PRICE=[{0}]", _sell_floor_price);
                             }
                             else 
                             {
@@ -382,8 +382,8 @@ namespace Blinktrade
 				_sellTargetPrice = midprice + _pegOffsetValue;
 				
 				// check the selling FLOOR
-				if ( _sellTargetPrice < _sell_floor) {
-					_sellTargetPrice = _sell_floor;
+				if ( _sellTargetPrice < _sell_floor_price) {
+					_sellTargetPrice = _sell_floor_price;
 				}
 			}
 
@@ -596,19 +596,19 @@ namespace Blinktrade
                     sellPrice = bestOffer.Price;
                 }
 
-                if (sellPrice > 0 || _sell_floor > 0)
+                if (sellPrice > 0 || _sell_floor_price > 0)
                 {
-                    if (sellPrice >= _sell_floor)
+                    if (sellPrice >= _sell_floor_price)
                     {
                         replaceOrder(webSocketConnection, symbol, OrderSide.SELL, sellPrice);
                         return;
                     }
 
-                    if (_sell_floor == 0)
+                    if (_sell_floor_price == 0)
                     {
                         return;
                     }
-                    _sellTargetPrice = _sell_floor; // find the best position as maker for the sell floor price
+                    _sellTargetPrice = _sell_floor_price; // find the best position as maker for the sell floor price
                 }
             }
 
