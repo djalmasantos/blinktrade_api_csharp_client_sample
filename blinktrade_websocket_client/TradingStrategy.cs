@@ -620,7 +620,9 @@ namespace Blinktrade
                 }
                 else
                 {
-                    return; // empty book scenario without a user defined sell floor price
+                    // empty book scenario without a user defined sell floor price
+                    _tradeclient.CancelOrderByClOrdID(webSocketConnection, _strategySellOrderClorid);
+                    return;
                 }
             }
 
