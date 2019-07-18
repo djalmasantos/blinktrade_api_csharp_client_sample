@@ -638,7 +638,7 @@ namespace Blinktrade
             }
 
             // available funds with a target price should execute ASAP even as liquidity takers whenever possible
-            if (_sellTargetPrice > 0 && bestBid != null && bestBid.Price >= _sellTargetPrice)
+            if (_sellTargetPrice > 0 && bestBid != null && bestBid.Price >= _sellTargetPrice && bestBid.UserId != _tradeclient.UserId)
             {
                 ulong availableQty = calculateOrderQty(symbol, OrderSide.SELL, bestBid.Price, ulong.MaxValue);
                 if (availableQty > _minOrderSize)
