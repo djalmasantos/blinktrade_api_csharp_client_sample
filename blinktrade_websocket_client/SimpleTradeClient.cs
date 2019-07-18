@@ -874,10 +874,7 @@ namespace Blinktrade
 					break;
 				case "MARKET":
 					priceType = TradingStrategy.PriceType.MARKET_AS_MAKER;	
-					if (side == default(char)) {
-						throw new ArgumentException("MARKET must define or BUY or SELL");
-					}
-					break;
+                    break;
 				case "DEEP":
 					if ( side == OrderSide.BUY )
 						priceType = TradingStrategy.PriceType.EXPLORE_BOOK_DEPTH;
@@ -940,8 +937,14 @@ namespace Blinktrade
                 return;
             }
 
-			if (priceType != TradingStrategy.PriceType.MARKET_AS_MAKER) {
-				try {
+            if (priceType == TradingStrategy.PriceType.MARKET_AS_MAKER)
+            {
+                if (side == default(char) && (buyTargetPrice == 0 || sellTargetPrice == 0 || buyTargetPrice >= sellTargetPrice))
+                    throw new ArgumentException("Invalid SELL and BUY Price RANGE for MARKET AS MAKER Strategy");
+            }
+            else
+            { 
+                try {
 					if ((side == OrderSide.BUY || side == default(char)) && buyTargetPrice == 0)
 						throw new ArgumentException ("Invalid BUY Target Price");
 
@@ -1000,11 +1003,16 @@ namespace Blinktrade
                     ulong stoppx = buyTargetPrice;
                     ulong entry_price = sellTargetPrice;
                     double percentage_offset = Math.Round(maxTradeSize / 1e8, 8);
-                    if (percentage_offset < 1 || percentage_offset > 99) {
+                    if (percentage_offset < 1 || percentage_offset > 99)
+                    {
                         throw new ArgumentException("Invalid OFFSET % FOR TRAILING STOP - Must be between 1 and 99 - %=" + percentage_offset);
                     }
                     Console.WriteLine("DEBUG Starting Trailing Stop Strategy with EntryPrice=[{0}], StopPx=[{1}], Offset=[{2}]", entry_price, stoppx, percentage_offset);
                     strategy = new TradingStrategy(entry_price, stoppx, percentage_offset);
+                }
+                else if (priceType == TradingStrategy.PriceType.MARKET_AS_MAKER)
+                {
+                    strategy = new TradingStrategy(maxTradeSize, buyTargetPrice, sellTargetPrice, side);
                 }
                 else
                 {

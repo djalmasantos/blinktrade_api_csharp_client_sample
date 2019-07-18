@@ -119,6 +119,17 @@ namespace Blinktrade
             _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
         }
 
+        // market as maker constructor
+        public TradingStrategy(ulong max_trade_size, ulong buy_cap_price, ulong sell_floor_price, char side)
+        {
+            _priceType = PriceType.MARKET_AS_MAKER;
+            _maxOrderSize = max_trade_size;
+            _buy_cap_price = buy_cap_price > 0 ? buy_cap_price : ulong.MaxValue;
+            _sell_floor_price = sell_floor_price;
+            _strategySide = side;
+            _startTime = Util.ConvertToUnixTimestamp(DateTime.Now);
+        }
+
         public void Reset()
 		{
 			_strategySellOrderClorid = null;
