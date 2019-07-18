@@ -497,7 +497,6 @@ namespace Blinktrade
                     ulong buyPrice = bestBid.Price + (ulong)(0.01 * 1e8);
                     if (buyPrice <= this._buyTargetPrice) 
                     {
-						//OrderBook.IOrder bestOffer = _tradeclient.GetOrderBook(symbol).BestOffer;
 						if (buyPrice < bestOffer.Price) 
 						{
 							replaceOrder (webSocketConnection, symbol, OrderSide.BUY, buyPrice);
