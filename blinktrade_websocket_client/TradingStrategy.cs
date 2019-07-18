@@ -447,6 +447,7 @@ namespace Blinktrade
                 Debug.Assert(_buy_cap_price > 0);
                 if (_buy_cap_price == 0 || _buy_cap_price == ulong.MaxValue)
                 {
+                    _tradeclient.CancelOrderByClOrdID(webSocketConnection,_strategyBuyOrderClorid);
                     return;
                 }
                
