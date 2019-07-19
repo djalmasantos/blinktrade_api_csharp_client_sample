@@ -449,14 +449,18 @@ namespace Blinktrade
                     buyPrice = bestBid.Price;
                 }
 
+                Debug.Assert(_buy_cap_price > 0);
+                if (_buy_cap_price == 0) {
+                    _buy_cap_price = ulong.MaxValue;
+                }
+
                 if (buyPrice > 0 && buyPrice <= _buy_cap_price)
                 {
                     replaceOrder(webSocketConnection, symbol, OrderSide.BUY, buyPrice);
                     return;
                 }
 
-                Debug.Assert(_buy_cap_price > 0);
-                if (_buy_cap_price == 0 || _buy_cap_price == ulong.MaxValue)
+                if (_buy_cap_price == ulong.MaxValue)
                 {
                     _tradeclient.CancelOrderByClOrdID(webSocketConnection,_strategyBuyOrderClorid);
                     return;
