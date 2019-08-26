@@ -74,6 +74,7 @@ namespace Blinktrade
             login_request["UserAgentPlatform"] = "Linux x86_64";
             login_request["FingerPrint"] = connection.Device.FingerPrint;
             login_request["STUNTIP"] = connection.Device.Stuntip;
+            login_request["RemoteIP"] = Util.GetExternalIpAddress();
 
             // send the login request Message on wire
             connection.SendMessage(login_request.ToString());
